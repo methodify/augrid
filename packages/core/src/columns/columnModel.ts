@@ -130,7 +130,7 @@ export class ColumnModel<TData = unknown> {
     if (sample == null) return;
     for (const col of this.primaryColumns) {
       const declared = col.colDef.cellDataType;
-      if (declared) {
+      if (declared !== undefined) {
         col.cellDataType = declared === false ? 'object' : declared;
         continue;
       }

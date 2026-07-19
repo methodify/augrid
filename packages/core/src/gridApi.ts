@@ -20,7 +20,7 @@ export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {
       destroyed = true;
       (ctx as { __destroyGrid?: () => void }).__destroyGrid?.();
     },
-    isDestroyed: () => destroyed,
+    isDestroyed: () => destroyed || ctx.destroyed,
 
     setGridOption(key, value) {
       ctx.options.update({ [key]: value } as Partial<GridOptions<TData>>);

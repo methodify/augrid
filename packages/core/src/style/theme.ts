@@ -26,10 +26,14 @@ const DENSITY_SCALE = { compact: 0.8, normal: 1, comfortable: 1.25 } as const;
 
 /** Apply a theme spec as inline CSS variables on this grid's root element. */
 export function applyTheme(rootEl: HTMLElement, spec: ThemeSpec | undefined): void {
-  // Clear previous inline theme vars.
-  for (const name of [...rootEl.style]) {
-    if (name.startsWith('--au-')) rootEl.style.removeProperty(name);
+  // Clear previous inline theme vars (index iteration: iterable spread of
+  // CSSStyleDeclaration is unsupported in some DOM implementations).
+  const toRemove: string[] = [];
+  for (let i = 0; i < rootEl.style.length; i++) {
+    const name = rootEl.style.item(i);
+    if (name.startsWith('--au-')) toRemove.push(name);
   }
+  for (const name of toRemove) rootEl.style.removeProperty(name);
   rootEl.removeAttribute('data-au-color-scheme');
 
   const scheme = spec?.colorScheme ?? 'light';

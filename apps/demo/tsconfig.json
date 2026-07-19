@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "paths": {
+      "@augrid/core": ["../../packages/core/src/index.ts"],
+      "@augrid/react": ["../../packages/react/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
