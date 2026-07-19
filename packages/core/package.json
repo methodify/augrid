@@ -1,0 +1,23 @@
+{
+  "name": "@augrid/core",
+  "version": "0.1.0",
+  "description": "AuGrid — a free, high-performance data grid. Framework-agnostic core.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": ["./dist/element.js"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": ["datagrid", "grid", "table", "virtual-scroll", "pivot", "web-component"]
+}
