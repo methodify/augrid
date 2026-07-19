@@ -121,7 +121,11 @@ function buildTree<TData>(
     if (upTo === 0) return root;
     const key = path.slice(0, upTo).join('|');
     let node = byPath.get(key);
-    if (node) return node;
+    if (node) {
+      // A data-backed row becoming a parent: give it a children array.
+      if (!node.childrenAfterGroup) node.childrenAfterGroup = [];
+      return node;
+    }
     // filler group
     node = new RowNode<TData>(ctx, `row-group-tree-${key}`);
     node.group = true;

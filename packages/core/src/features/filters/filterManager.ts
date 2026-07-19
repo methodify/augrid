@@ -75,6 +75,8 @@ export class FilterManager<TData = unknown> implements IFilterManager<TData> {
   }
 
   private onModelChanged(source: string): void {
+    // Refresh the model first so filterChanged listeners observe filtered rows.
+    this.ctx.rowModel.onFilterChanged();
     this.ctx.events.dispatch({
       type: 'filterChanged',
       api: this.ctx.api,
@@ -82,7 +84,6 @@ export class FilterManager<TData = unknown> implements IFilterManager<TData> {
       filterModel: this.getModel(),
       source,
     });
-    this.ctx.rowModel.onFilterChanged();
     this.ctx.scheduleRender();
   }
 

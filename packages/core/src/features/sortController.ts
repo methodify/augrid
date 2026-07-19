@@ -46,6 +46,8 @@ export class SortController<TData = unknown> implements ISortController<TData> {
         col.sortIndex = i;
       }
     }
+    // Refresh the model first so sortChanged listeners observe the new order.
+    this.ctx.rowModel.onSortChanged();
     this.ctx.events.dispatch({
       type: 'sortChanged',
       api: this.ctx.api,
@@ -53,7 +55,6 @@ export class SortController<TData = unknown> implements ISortController<TData> {
       sortModel: model,
       source,
     });
-    this.ctx.rowModel.onSortChanged();
     this.ctx.scheduleRender();
   }
 

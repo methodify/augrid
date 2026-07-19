@@ -114,6 +114,31 @@ describe('runGroupStage', () => {
     expect(res.groupsByPath.get('UK')!.expanded).toBe(false); // default 0
   });
 
+  it('tree data: parent data row appearing BEFORE its children gets a children array', () => {
+    const ctx = ctxWith({
+      treeData: true,
+      getDataPath: (d: Row) => d.path!,
+      columnDefs: [{ field: 'name' }, { field: 'value', aggFunc: 'sum' }],
+    });
+    // parent first, child second: ensureParent must upgrade the data node in place
+    const data: Row[] = [
+      { path: ['A'], value: 10, name: 'parent' },
+      { path: ['A', 'B'], value: 1, name: 'child' },
+      { path: ['A', 'B', 'C'], value: 2, name: 'grandchild' },
+    ];
+    const leaves = makeLeaves(ctx, data);
+    const { root, groupsByPath } = runGroupStage(ctx, leaves, null, -1);
+    const a = groupsByPath.get('A')!;
+    expect(a).toBe(leaves[0]);
+    expect(a.group).toBe(true);
+    expect(a.childrenAfterGroup!.map((c) => c.key)).toEqual(['B']);
+    const b = groupsByPath.get('A|B')!;
+    expect(b).toBe(leaves[1]);
+    expect(b.group).toBe(true);
+    expect(b.childrenAfterGroup!.map((c) => c.key)).toEqual(['C']);
+    expect(root.childrenAfterGroup!.map((n) => n.key)).toEqual(['A']);
+  });
+
   it('tree data: builds hierarchy from getDataPath, upgrades fillers, aggregates parents', () => {
     const ctx = ctxWith({
       treeData: true,

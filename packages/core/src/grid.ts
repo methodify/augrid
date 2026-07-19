@@ -83,6 +83,15 @@ export class Grid<TData = unknown> {
 
     (ctx as unknown as { __destroyGrid: () => void }).__destroyGrid = () => this.destroy();
 
+    // Bridge events to GridOptions `onXxx` callbacks (looked up per dispatch so
+    // updated options keep working).
+    ctx.events.addGlobalListener((type, event) => {
+      const cb = (ctx.options.raw() as Record<string, unknown>)[
+        'on' + type.charAt(0).toUpperCase() + type.slice(1)
+      ];
+      if (typeof cb === 'function') cb(event);
+    });
+
     this.wireOptionChanges();
 
     // Apply initial state before first data.
