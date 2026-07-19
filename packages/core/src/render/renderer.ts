@@ -1,0 +1,746 @@
+import type { GridContext } from '../context';
+import type { Column } from '../columns/column';
+import type { RowNode } from '../rows/rowNode';
+import { RowBand } from './rowRenderer';
+import { HeaderRenderer } from './headerRenderer';
+import { el, closestWithAttr } from '../utils/dom';
+import { clamp } from '../utils/general';
+import type { CellPosition } from '../types/base';
+import type { ClientSideRowModel } from '../rows/clientSideRowModel';
+
+interface CellHit<TData> {
+  node: RowNode<TData>;
+  column: Column<TData>;
+  rowIndex: number;
+  rowPinned: 'top' | 'bottom' | null;
+  cellEl: HTMLElement;
+}
+
+export class GridRenderer<TData = unknown> {
+  private ctx: GridContext<TData>;
+  readonly eRoot: HTMLElement;
+  private eHeader!: HTMLElement;
+  private eHeaderLeft!: HTMLElement;
+  private eHeaderCenterVp!: HTMLElement;
+  private eHeaderCenter!: HTMLElement;
+  private eHeaderRight!: HTMLElement;
+  private eFloating!: HTMLElement;
+  private eFloatingLeft!: HTMLElement;
+  private eFloatingCenterVp!: HTMLElement;
+  private eFloatingCenter!: HTMLElement;
+  private eFloatingRight!: HTMLElement;
+  private eBody!: HTMLElement;
+  private eBodyLeft!: HTMLElement;
+  private eBodyLeftContainer!: HTMLElement;
+  private eBodyCenterVp!: HTMLElement;
+  private eCenterSpacer!: HTMLElement;
+  private eBodyRight!: HTMLElement;
+  private eBodyRightContainer!: HTMLElement;
+  private ePinnedTop!: HTMLElement;
+  private ePinnedTopLeft!: HTMLElement;
+  private ePinnedTopCenterVp!: HTMLElement;
+  private ePinnedTopCenter!: HTMLElement;
+  private ePinnedTopRight!: HTMLElement;
+  private ePinnedBottom!: HTMLElement;
+  private ePinnedBottomLeft!: HTMLElement;
+  private ePinnedBottomCenterVp!: HTMLElement;
+  private ePinnedBottomCenter!: HTMLElement;
+  private ePinnedBottomRight!: HTMLElement;
+  private eOverlay!: HTMLElement;
+  private ePaging!: HTMLElement;
+
+  private headerRenderer!: HeaderRenderer<TData>;
+  private bodyBand!: RowBand<TData>;
+  private topBand!: RowBand<TData>;
+  private bottomBand!: RowBand<TData>;
+
+  private scrollTop = 0;
+  private scrollLeft = 0;
+  private viewportWidth = 0;
+  private viewportHeight = 0;
+  private rafId: number | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+  private headerDirty = true;
+  private firstRenderDone = false;
+  private hoveredRowId: string | null = null;
+  private scrollEndTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastVisible = { first: 0, last: -1 };
+  private destroyed = false;
+
+  constructor(ctx: GridContext<TData>, host: HTMLElement) {
+    this.ctx = ctx;
+    this.eRoot = el('div', 'au-root', {
+      role: 'treegrid',
+      tabindex: '0',
+      'aria-multiselectable': 'true',
+    });
+    host.appendChild(this.eRoot);
+    this.buildScaffold();
+    this.headerRenderer = new HeaderRenderer(ctx, {
+      header: this.eHeader,
+      headerLeft: this.eHeaderLeft,
+      headerCenterVp: this.eHeaderCenterVp,
+      headerCenter: this.eHeaderCenter,
+      headerRight: this.eHeaderRight,
+      floating: this.eFloating,
+      floatingLeft: this.eFloatingLeft,
+      floatingCenterVp: this.eFloatingCenterVp,
+      floatingCenter: this.eFloatingCenter,
+      floatingRight: this.eFloatingRight,
+    });
+    this.bodyBand = new RowBand(ctx, { left: this.eBodyLeftContainer, center: this.eCenterSpacer, right: this.eBodyRightContainer }, null);
+    this.topBand = new RowBand(ctx, { left: this.ePinnedTopLeft, center: this.ePinnedTopCenter, right: this.ePinnedTopRight }, 'top');
+    this.bottomBand = new RowBand(ctx, { left: this.ePinnedBottomLeft, center: this.ePinnedBottomCenter, right: this.ePinnedBottomRight }, 'bottom');
+    this.wireEvents();
+    this.observeSize();
+  }
+
+  private buildScaffold(): void {
+    const r = this.eRoot;
+    this.eHeader = el('div', 'au-header');
+    this.eHeaderLeft = el('div', 'au-header-left');
+    this.eHeaderCenterVp = el('div', 'au-header-center-vp');
+    this.eHeaderCenter = el('div', 'au-header-center');
+    this.eHeaderCenterVp.appendChild(this.eHeaderCenter);
+    this.eHeaderRight = el('div', 'au-header-right');
+    this.eHeader.append(this.eHeaderLeft, this.eHeaderCenterVp, this.eHeaderRight);
+
+    this.eFloating = el('div', 'au-floating');
+    this.eFloatingLeft = el('div', 'au-floating-left');
+    this.eFloatingCenterVp = el('div', 'au-floating-center-vp');
+    this.eFloatingCenter = el('div', 'au-floating-center');
+    this.eFloatingCenterVp.appendChild(this.eFloatingCenter);
+    this.eFloatingRight = el('div', 'au-floating-right');
+    this.eFloating.append(this.eFloatingLeft, this.eFloatingCenterVp, this.eFloatingRight);
+    this.eFloating.style.display = 'none';
+
+    this.ePinnedTop = el('div', 'au-pinned-top');
+    this.ePinnedTopLeft = el('div', 'au-pinned-row-left');
+    this.ePinnedTopCenterVp = el('div', 'au-pinned-row-center-vp');
+    this.ePinnedTopCenter = el('div', 'au-pinned-row-center');
+    this.ePinnedTopCenterVp.appendChild(this.ePinnedTopCenter);
+    this.ePinnedTopRight = el('div', 'au-pinned-row-right');
+    this.ePinnedTop.append(this.ePinnedTopLeft, this.ePinnedTopCenterVp, this.ePinnedTopRight);
+    this.ePinnedTop.style.display = 'none';
+
+    this.eBody = el('div', 'au-body', { role: 'rowgroup' });
+    this.eBodyLeft = el('div', 'au-body-left');
+    this.eBodyLeftContainer = el('div', 'au-pinned-container');
+    this.eBodyLeft.appendChild(this.eBodyLeftContainer);
+    this.eBodyCenterVp = el('div', 'au-body-center-vp');
+    this.eCenterSpacer = el('div', 'au-center-spacer');
+    this.eBodyCenterVp.appendChild(this.eCenterSpacer);
+    this.eBodyRight = el('div', 'au-body-right');
+    this.eBodyRightContainer = el('div', 'au-pinned-container');
+    this.eBodyRight.appendChild(this.eBodyRightContainer);
+    this.eBody.append(this.eBodyLeft, this.eBodyCenterVp, this.eBodyRight);
+
+    this.ePinnedBottom = el('div', 'au-pinned-bottom');
+    this.ePinnedBottomLeft = el('div', 'au-pinned-row-left');
+    this.ePinnedBottomCenterVp = el('div', 'au-pinned-row-center-vp');
+    this.ePinnedBottomCenter = el('div', 'au-pinned-row-center');
+    this.ePinnedBottomCenterVp.appendChild(this.ePinnedBottomCenter);
+    this.ePinnedBottomRight = el('div', 'au-pinned-row-right');
+    this.ePinnedBottom.append(this.ePinnedBottomLeft, this.ePinnedBottomCenterVp, this.ePinnedBottomRight);
+    this.ePinnedBottom.style.display = 'none';
+
+    this.eOverlay = el('div', 'au-overlay');
+    this.eOverlay.hidden = true;
+    this.ePaging = el('div', 'au-paging');
+    this.ePaging.style.display = 'none';
+
+    r.append(this.eHeader, this.eFloating, this.ePinnedTop, this.eBody, this.ePinnedBottom, this.eOverlay, this.ePaging);
+  }
+
+  /* ------------------------------------------------------------- observers */
+
+  private observeSize(): void {
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.readViewportSize();
+        this.ctx.events.dispatch({
+          type: 'gridSizeChanged',
+          api: this.ctx.api,
+          context: this.ctx.options.get('context'),
+          clientWidth: this.viewportWidth,
+          clientHeight: this.viewportHeight,
+        });
+        this.schedule();
+      });
+      this.resizeObserver.observe(this.eBodyCenterVp);
+    }
+    this.readViewportSize();
+  }
+
+  private readViewportSize(): void {
+    this.viewportWidth = this.eBodyCenterVp.clientWidth;
+    this.viewportHeight = this.eBodyCenterVp.clientHeight;
+    this.ctx.columnModel.setViewportWidth(this.viewportWidth);
+  }
+
+  /** Test hook (jsdom has no layout). */
+  setViewportSizeForTesting(width: number, height: number): void {
+    this.viewportWidth = width;
+    this.viewportHeight = height;
+    this.ctx.columnModel.setViewportWidth(width);
+  }
+
+  /* ---------------------------------------------------------------- events */
+
+  private wireEvents(): void {
+    this.eBodyCenterVp.addEventListener(
+      'scroll',
+      () => {
+        this.scrollTop = this.eBodyCenterVp.scrollTop;
+        const prevLeft = this.scrollLeft;
+        this.scrollLeft = this.eBodyCenterVp.scrollLeft;
+        this.schedule();
+        this.ctx.events.dispatch({
+          type: 'bodyScroll',
+          api: this.ctx.api,
+          context: this.ctx.options.get('context'),
+          left: this.scrollLeft,
+          top: this.scrollTop,
+          direction: prevLeft !== this.scrollLeft ? 'horizontal' : 'vertical',
+        });
+        if (this.scrollEndTimer) clearTimeout(this.scrollEndTimer);
+        this.scrollEndTimer = setTimeout(() => {
+          this.ctx.events.dispatch({
+            type: 'bodyScrollEnd',
+            api: this.ctx.api,
+            context: this.ctx.options.get('context'),
+            left: this.scrollLeft,
+            top: this.scrollTop,
+            direction: 'vertical',
+          });
+        }, 150);
+      },
+      { passive: true },
+    );
+
+    this.eRoot.addEventListener('keydown', (e) => {
+      this.ctx.focus?.onKeyDown(e);
+    });
+
+    // Delegated mouse events
+    this.eRoot.addEventListener('mousedown', (e) => this.onMouseDown(e));
+    this.eRoot.addEventListener('click', (e) => this.onClick(e));
+    this.eRoot.addEventListener('dblclick', (e) => this.onDblClick(e));
+    this.eRoot.addEventListener('contextmenu', (e) => this.onContextMenu(e));
+    this.eRoot.addEventListener('mouseover', (e) => this.onMouseOver(e));
+    this.eRoot.addEventListener('mouseleave', () => {
+      this.setHoveredRow(null);
+      this.ctx.tooltips?.onLeaveGrid();
+    });
+  }
+
+  private cellFromEvent(e: Event): CellHit<TData> | null {
+    const target = e.target as Element | null;
+    if (!target) return null;
+    const cellEl = closestWithAttr(target, 'data-au-col', this.eRoot);
+    if (!cellEl) return null;
+    const rowEl = closestWithAttr(cellEl, 'data-au-row-id', this.eRoot);
+    if (!rowEl) return null;
+    const colId = cellEl.getAttribute('data-au-col')!;
+    const rowId = rowEl.getAttribute('data-au-row-id')!;
+    const rowIndex = Number(rowEl.getAttribute('data-au-row-index'));
+    const column = this.ctx.columnModel.getColumn(colId);
+    if (!column) return null;
+    let node: RowNode<TData> | undefined;
+    let rowPinned: 'top' | 'bottom' | null = null;
+    if (rowId.startsWith('pinned-top-')) {
+      rowPinned = 'top';
+      node = (this.ctx.rowModel as ClientSideRowModel<TData>).getPinnedRow?.('top', rowIndex);
+    } else if (rowId.startsWith('pinned-bottom-')) {
+      rowPinned = 'bottom';
+      node = (this.ctx.rowModel as ClientSideRowModel<TData>).getPinnedRow?.('bottom', rowIndex);
+    } else {
+      node = this.ctx.rowModel.getRow(rowIndex);
+      if (node && node.id !== rowId) node = this.ctx.rowModel.getRowNode(rowId) ?? node;
+    }
+    if (!node) return null;
+    return { node, column, rowIndex, rowPinned, cellEl };
+  }
+
+  private cellEventPayload(hit: CellHit<TData>, e: Event) {
+    return {
+      api: this.ctx.api,
+      context: this.ctx.options.get('context'),
+      node: hit.node,
+      data: hit.node.data,
+      column: hit.column,
+      colDef: hit.column.getColDef(),
+      colId: hit.column.colId,
+      value: this.ctx.values.getValue(hit.node, hit.column),
+      rowIndex: hit.rowIndex,
+      event: e,
+    };
+  }
+
+  private onMouseDown(e: MouseEvent): void {
+    const target = e.target as Element;
+    if ((target as HTMLElement).getAttribute?.('data-au-fill-handle')) {
+      this.ctx.range?.onFillHandleMouseDown(e);
+      e.preventDefault();
+      return;
+    }
+    const hit = this.cellFromEvent(e);
+    if (!hit) return;
+    if (e.button !== 0) return;
+    // Focus the cell (unless clicking checkbox/expand controls)
+    const isControl =
+      (target as HTMLElement).hasAttribute?.('data-au-row-checkbox') ||
+      (target as HTMLElement).hasAttribute?.('data-au-expand');
+    if (!isControl && hit.rowPinned == null) {
+      const editingHere = this.ctx.editing?.isEditingCell(hit.rowIndex, hit.column.colId);
+      if (!editingHere) {
+        if (this.ctx.editing?.isEditing()) this.ctx.editing.stopEditing();
+        this.ctx.focus?.setFocusedCell(hit.rowIndex, hit.column.colId, hit.rowPinned);
+        this.ctx.range?.onCellMouseDown(
+          { rowIndex: hit.rowIndex, colId: hit.column.colId, rowPinned: hit.rowPinned },
+          e,
+        );
+      }
+    }
+  }
+
+  private onClick(e: MouseEvent): void {
+    const target = e.target as HTMLElement;
+    // header interactions
+    const headerSort = closestWithAttr(target, 'data-au-sort-col', this.eRoot);
+    if (headerSort) {
+      const colId = headerSort.getAttribute('data-au-sort-col')!;
+      const col = this.ctx.columnModel.getColumn(colId);
+      if (col) {
+        const multiKey = this.ctx.options.get('multiSortKey') === 'ctrl' ? e.ctrlKey || e.metaKey : e.shiftKey;
+        this.ctx.sort.progressSort(col, multiKey, 'header');
+      }
+      return;
+    }
+    if (target.hasAttribute('data-au-header-checkbox')) {
+      this.ctx.selection?.handleHeaderCheckbox((target as HTMLInputElement).checked);
+      return;
+    }
+    const hit = this.cellFromEvent(e);
+    if (!hit) return;
+    if (target.hasAttribute('data-au-expand')) {
+      hit.node.setExpanded(!hit.node.expanded);
+      return;
+    }
+    if (target.hasAttribute('data-au-row-checkbox')) {
+      const checked = (target as HTMLInputElement).checked;
+      this.ctx.selection?.setSelected([hit.node], checked, 'checkbox');
+      return;
+    }
+    this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellClicked' });
+    this.ctx.events.dispatch({
+      type: 'rowClicked',
+      api: this.ctx.api,
+      context: this.ctx.options.get('context'),
+      node: hit.node,
+      data: hit.node.data,
+      rowIndex: hit.rowIndex,
+      event: e,
+    });
+    if (hit.rowPinned == null) this.ctx.selection?.handleRowClick(hit.node, e);
+    // single-click editing
+    const single = this.ctx.options.is('singleClickEdit') || hit.column.getColDef().singleClickEdit === true;
+    if (single && hit.rowPinned == null) {
+      this.ctx.editing?.startEditing({ rowIndex: hit.rowIndex, colId: hit.column.colId, event: e });
+    }
+  }
+
+  private onDblClick(e: MouseEvent): void {
+    const hit = this.cellFromEvent(e);
+    if (!hit) return;
+    this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellDoubleClicked' });
+    this.ctx.events.dispatch({
+      type: 'rowDoubleClicked',
+      api: this.ctx.api,
+      context: this.ctx.options.get('context'),
+      node: hit.node,
+      data: hit.node.data,
+      rowIndex: hit.rowIndex,
+      event: e,
+    });
+    if (hit.rowPinned == null) {
+      this.ctx.editing?.startEditing({ rowIndex: hit.rowIndex, colId: hit.column.colId, event: e });
+    }
+  }
+
+  private onContextMenu(e: MouseEvent): void {
+    const hit = this.cellFromEvent(e);
+    if (!hit) return;
+    this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellContextMenu' });
+  }
+
+  private onMouseOver(e: MouseEvent): void {
+    const target = e.target as Element;
+    const rowEl = closestWithAttr(target, 'data-au-row-id', this.eRoot);
+    this.setHoveredRow(rowEl ? rowEl.getAttribute('data-au-row-id') : null);
+    if (this.ctx.tooltips) {
+      const cellEl = closestWithAttr(target, 'data-au-col', this.eRoot);
+      const rowIdx = rowEl ? Number(rowEl.getAttribute('data-au-row-index')) : -1;
+      if (cellEl && rowIdx >= 0) {
+        this.ctx.tooltips.onCellMouseOver(cellEl, rowIdx, cellEl.getAttribute('data-au-col')!);
+      }
+    }
+  }
+
+  private setHoveredRow(rowId: string | null): void {
+    if (rowId === this.hoveredRowId) return;
+    if (this.hoveredRowId) {
+      for (const e of this.bodyBand.getRowElements(this.hoveredRowId)) e.classList.remove('au-row-hover');
+    }
+    this.hoveredRowId = rowId;
+    if (rowId) {
+      for (const e of this.bodyBand.getRowElements(rowId)) e.classList.add('au-row-hover');
+    }
+  }
+
+  /* -------------------------------------------------------------- rendering */
+
+  schedule(): void {
+    if (this.rafId != null || this.destroyed) return;
+    if (typeof requestAnimationFrame === 'undefined') {
+      this.renderNow();
+      return;
+    }
+    this.rafId = requestAnimationFrame(() => {
+      this.rafId = null;
+      this.renderNow();
+    });
+  }
+
+  markHeaderDirty(): void {
+    this.headerDirty = true;
+  }
+
+  renderNow(): void {
+    if (this.destroyed) return;
+    const ctx = this.ctx;
+    const model = ctx.rowModel;
+    const displayed = ctx.columnModel.getDisplayed();
+    const widths = ctx.columnModel.getRegionWidths();
+
+    if (this.headerDirty) {
+      this.headerRenderer.refresh();
+      this.headerDirty = false;
+    } else {
+      this.headerRenderer.updateSortIndicators();
+      this.headerRenderer.updateHeaderCheckbox();
+    }
+
+    // region sizing
+    this.eBodyLeft.style.width = `${widths.left}px`;
+    this.eBodyRight.style.width = `${widths.right}px`;
+    this.eBodyLeft.style.display = widths.left > 0 ? '' : 'none';
+    this.eBodyRight.style.display = widths.right > 0 ? '' : 'none';
+    const totalHeight = model.getTotalHeight();
+    this.eCenterSpacer.style.width = `${widths.center}px`;
+    this.eCenterSpacer.style.height = `${Math.max(totalHeight, 1)}px`;
+    this.eBodyLeftContainer.style.height = `${Math.max(totalHeight, 1)}px`;
+    this.eBodyRightContainer.style.height = `${Math.max(totalHeight, 1)}px`;
+
+    // sync horizontal: header + floating + pinned rows follow center scroll
+    const tx = `translateX(${-this.scrollLeft}px)`;
+    this.eHeaderCenter.style.transform = tx;
+    this.eFloatingCenter.style.transform = tx;
+    this.ePinnedTopCenter.style.transform = tx;
+    this.ePinnedBottomCenter.style.transform = tx;
+    // sync vertical: pinned side containers follow center scroll
+    const ty = `translateY(${-this.scrollTop}px)`;
+    this.eBodyLeftContainer.style.transform = ty;
+    this.eBodyRightContainer.style.transform = ty;
+
+    // visible rows
+    const rowCount = model.getRowCount();
+    const buffer = ctx.options.get('rowBuffer') ?? 3;
+    let first = 0;
+    let last = rowCount - 1;
+    if (!ctx.options.is('suppressRowVirtualisation') && this.viewportHeight > 0) {
+      first = Math.max(0, model.getRowIndexAtPixel(this.scrollTop) - buffer);
+      last = Math.min(rowCount - 1, model.getRowIndexAtPixel(this.scrollTop + this.viewportHeight) + buffer);
+    } else if (rowCount > 500 && !ctx.options.is('suppressRowVirtualisation')) {
+      last = 500; // safety cap when no viewport measured
+    }
+    const visibleNodes: RowNode<TData>[] = [];
+    for (let i = first; i <= last; i++) {
+      const n = model.getRow(i);
+      if (n) visibleNodes.push(n);
+    }
+
+    // visible center columns
+    const centerCols = this.visibleCenterColumns(displayed.center);
+
+    this.bodyBand.render(visibleNodes, displayed.left, centerCols, displayed.right, widths, 0);
+
+    // pinned rows
+    this.renderPinned(displayed, widths, centerCols);
+
+    // overlays
+    this.updateOverlay(rowCount);
+
+    if (first !== this.lastVisible.first || last !== this.lastVisible.last) {
+      this.lastVisible = { first, last };
+      ctx.events.dispatch({
+        type: 'viewportChanged',
+        api: ctx.api,
+        context: ctx.options.get('context'),
+      });
+    }
+
+    if (!this.firstRenderDone && model.isDataLoaded() && rowCount >= 0) {
+      this.firstRenderDone = true;
+      ctx.events.dispatch({
+        type: 'firstDataRendered',
+        api: ctx.api,
+        context: ctx.options.get('context'),
+      });
+    }
+  }
+
+  private visibleCenterColumns(center: Column<TData>[]): Column<TData>[] {
+    if (this.ctx.options.is('suppressColumnVirtualisation') || this.viewportWidth <= 0) return center;
+    const from = this.scrollLeft;
+    const to = this.scrollLeft + this.viewportWidth;
+    const out: Column<TData>[] = [];
+    for (const c of center) {
+      if (c.left + c.actualWidth < from || c.left > to) continue;
+      out.push(c);
+    }
+    return out;
+  }
+
+  private renderPinned(
+    displayed: { left: Column<TData>[]; center: Column<TData>[]; right: Column<TData>[] },
+    widths: { left: number; center: number; right: number },
+    centerCols: Column<TData>[],
+  ): void {
+    const model = this.ctx.rowModel as ClientSideRowModel<TData>;
+    const top = model.getPinnedRows ? model.getPinnedRows('top') : [];
+    const bottom = model.getPinnedRows ? model.getPinnedRows('bottom') : [];
+    const rowH = this.ctx.options.get('rowHeight') ?? 32;
+    const sizeBand = (
+      bandEl: HTMLElement,
+      leftEl: HTMLElement,
+      rightEl: HTMLElement,
+      rows: RowNode<TData>[],
+    ) => {
+      if (rows.length === 0) {
+        bandEl.style.display = 'none';
+        return;
+      }
+      bandEl.style.display = '';
+      const h = rows.reduce((s, r) => s + (r.rowHeight || rowH), 0);
+      bandEl.style.height = `${h}px`;
+      leftEl.style.width = `${widths.left}px`;
+      rightEl.style.width = `${widths.right}px`;
+      let y = 0;
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].rowIndex = i;
+        rows[i].rowTop = y;
+        if (!rows[i].rowHeight) rows[i].rowHeight = rowH;
+        y += rows[i].rowHeight;
+      }
+    };
+    sizeBand(this.ePinnedTop, this.ePinnedTopLeft, this.ePinnedTopRight, top);
+    sizeBand(this.ePinnedBottom, this.ePinnedBottomLeft, this.ePinnedBottomRight, bottom);
+    if (top.length > 0) this.topBand.render(top, displayed.left, centerCols, displayed.right, widths, 0);
+    else this.topBand.clear();
+    if (bottom.length > 0) this.bottomBand.render(bottom, displayed.left, centerCols, displayed.right, widths, 0);
+    else this.bottomBand.clear();
+  }
+
+  private updateOverlay(rowCount: number): void {
+    const loading = this.ctx.options.is('loading') || this.overlayForced === 'loading';
+    const noRows =
+      this.overlayForced === 'noRows' ||
+      (this.ctx.rowModel.isDataLoaded() && rowCount === 0 && this.overlayForced !== 'hidden');
+    if (loading) {
+      this.eOverlay.hidden = false;
+      this.eOverlay.innerHTML = '';
+      const panel = el('div', 'au-overlay-panel');
+      panel.appendChild(el('span', 'au-loading-spinner'));
+      panel.appendChild(document.createTextNode('Loading…'));
+      this.eOverlay.appendChild(panel);
+    } else if (noRows) {
+      this.eOverlay.hidden = false;
+      this.eOverlay.innerHTML = '';
+      const panel = el('div', 'au-overlay-panel');
+      panel.textContent = this.ctx.options.get('overlayNoRowsTemplate') ?? 'No rows to show';
+      this.eOverlay.appendChild(panel);
+    } else {
+      this.eOverlay.hidden = true;
+    }
+  }
+
+  private overlayForced: 'loading' | 'noRows' | 'hidden' | null = null;
+  showOverlay(kind: 'loading' | 'noRows' | 'hidden' | null): void {
+    this.overlayForced = kind;
+    this.schedule();
+  }
+
+  /* ------------------------------------------------------------ public API */
+
+  getPagingContainer(): HTMLElement {
+    return this.ePaging;
+  }
+
+  getScroll(): { top: number; left: number } {
+    return { top: this.scrollTop, left: this.scrollLeft };
+  }
+
+  getViewportSize(): { width: number; height: number } {
+    return { width: this.viewportWidth, height: this.viewportHeight };
+  }
+
+  getVisibleRowRange(): { first: number; last: number } {
+    return { ...this.lastVisible };
+  }
+
+  ensureIndexVisible(index: number, position: 'top' | 'middle' | 'bottom' | null = null): void {
+    const model = this.ctx.rowModel;
+    const count = model.getRowCount();
+    if (count === 0) return;
+    const i = clamp(index, 0, count - 1);
+    const top = model.getRowTop(i);
+    const height = model.getRowHeightAt(i);
+    let newTop = this.scrollTop;
+    if (position === 'top') newTop = top;
+    else if (position === 'middle') newTop = top - this.viewportHeight / 2 + height / 2;
+    else if (position === 'bottom') newTop = top - this.viewportHeight + height;
+    else {
+      if (top < this.scrollTop) newTop = top;
+      else if (top + height > this.scrollTop + this.viewportHeight)
+        newTop = top + height - this.viewportHeight;
+    }
+    newTop = clamp(newTop, 0, Math.max(0, model.getTotalHeight() - this.viewportHeight));
+    if (newTop !== this.scrollTop) {
+      this.scrollTop = newTop;
+      this.eBodyCenterVp.scrollTop = newTop;
+      this.schedule();
+    }
+  }
+
+  ensureColumnVisible(colId: string): void {
+    const col = this.ctx.columnModel.getColumn(colId);
+    if (!col || col.pinned) return;
+    const left = col.left;
+    const right = col.left + col.actualWidth;
+    let newLeft = this.scrollLeft;
+    if (left < this.scrollLeft) newLeft = left;
+    else if (right > this.scrollLeft + this.viewportWidth) newLeft = right - this.viewportWidth;
+    if (newLeft !== this.scrollLeft) {
+      this.scrollLeft = newLeft;
+      this.eBodyCenterVp.scrollLeft = newLeft;
+      this.schedule();
+    }
+  }
+
+  getCellElement(pos: CellPosition): HTMLElement | null {
+    const band = pos.rowPinned === 'top' ? this.topBand : pos.rowPinned === 'bottom' ? this.bottomBand : this.bodyBand;
+    let rowId: string | null = null;
+    if (pos.rowPinned) {
+      rowId = `pinned-${pos.rowPinned}-${pos.rowIndex}`;
+    } else {
+      rowId = this.ctx.rowModel.getRow(pos.rowIndex)?.id ?? null;
+    }
+    if (!rowId) return null;
+    return band.getCellElement(rowId, pos.colId);
+  }
+
+  /** DOM focus for a11y — focuses the cell element if rendered. */
+  focusCellElement(pos: CellPosition): void {
+    const cell = this.getCellElement(pos);
+    if (cell) cell.focus({ preventScroll: true });
+    else this.eRoot.focus({ preventScroll: true });
+  }
+
+  refreshCells(params?: { rowIds?: Set<string>; colIds?: Set<string> }): void {
+    if (params?.rowIds) {
+      this.bodyBand.invalidateRows(params.rowIds, params.colIds);
+      this.topBand.invalidateRows(params.rowIds, params.colIds);
+      this.bottomBand.invalidateRows(params.rowIds, params.colIds);
+    } else {
+      this.bodyBand.invalidateAll(params?.colIds);
+      this.topBand.invalidateAll(params?.colIds);
+      this.bottomBand.invalidateAll(params?.colIds);
+    }
+    this.schedule();
+  }
+
+  redrawAll(): void {
+    this.bodyBand.clear();
+    this.topBand.clear();
+    this.bottomBand.clear();
+    this.headerDirty = true;
+    this.schedule();
+  }
+
+  flashCells(rowIds: Set<string> | null, colIds: Set<string> | null): void {
+    const duration = this.ctx.options.get('cellFlashDuration') ?? 700;
+    const flashBand = (band: RowBand<TData>) => {
+      void band;
+    };
+    void flashBand;
+    // flash rendered cells matching filter
+    const apply = (rowId: string) => {
+      const cols = colIds ?? new Set(this.ctx.columnModel.getDisplayedColumns().map((c) => c.colId));
+      for (const colId of cols) {
+        const cell = this.bodyBand.getCellElement(rowId, colId);
+        if (cell) {
+          cell.classList.remove('au-cell-flash');
+          // force restart of animation
+          void cell.offsetWidth;
+          cell.classList.add('au-cell-flash');
+          setTimeout(() => cell.classList.remove('au-cell-flash'), duration + 50);
+        }
+      }
+    };
+    if (rowIds) for (const id of rowIds) apply(id);
+    else {
+      const { first, last } = this.lastVisible;
+      for (let i = first; i <= last; i++) {
+        const n = this.ctx.rowModel.getRow(i);
+        if (n) apply(n.id);
+      }
+    }
+  }
+
+  /** Measure content width for autosize. Uses a hidden measuring element. */
+  measureColumnWidth(col: Column<TData>, skipHeader: boolean): number {
+    const measurer = el('div');
+    measurer.style.cssText =
+      'position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0;font-size:inherit;font-family:inherit;';
+    this.eRoot.appendChild(measurer);
+    let max = 20;
+    if (!skipHeader) {
+      measurer.textContent = col.getHeaderName();
+      max = Math.max(max, measurer.offsetWidth + 40);
+    }
+    const { first, last } = this.lastVisible;
+    const from = Math.max(0, first);
+    const to = Math.min(this.ctx.rowModel.getRowCount() - 1, Math.max(last, first + 50));
+    for (let i = from; i <= to; i++) {
+      const node = this.ctx.rowModel.getRow(i);
+      if (!node) continue;
+      measurer.textContent = this.ctx.values.getFormattedValue(node, col);
+      max = Math.max(max, measurer.offsetWidth + 28);
+    }
+    measurer.remove();
+    return Math.min(max, col.maxWidth);
+  }
+
+  destroy(): void {
+    this.destroyed = true;
+    if (this.rafId != null && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(this.rafId);
+    if (this.scrollEndTimer) clearTimeout(this.scrollEndTimer);
+    this.resizeObserver?.disconnect();
+    this.headerRenderer.destroy();
+    this.bodyBand.destroy();
+    this.topBand.destroy();
+    this.bottomBand.destroy();
+    this.eRoot.remove();
+  }
+}
