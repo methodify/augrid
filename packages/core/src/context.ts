@@ -44,6 +44,12 @@ export interface IRangeService<TData = unknown> {
   addCellRange(range: CellRange): void;
   setRangeToCell(pos: CellPosition, clearOthers?: boolean): void;
   extendLatestRangeToCell(pos: CellPosition): void;
+  /**
+   * Current extension end of the latest range — the corner opposite the
+   * anchor. Keyboard shift+arrow steps FROM this cell (not from the focused
+   * cell, which stays on the anchor while extending). Null when no range.
+   */
+  getLatestRangeEnd(): CellPosition | null;
   clearCellSelection(): void;
   /** Cell paint flags for the renderer. Bit flags: 1 in-range, 2 top, 4 right, 8 bottom, 16 left, 32 fill-handle-cell. */
   getCellFlags(rowIndex: number, colId: string): number;

@@ -31,6 +31,7 @@ function rangeStub<TData>(ranges: CellRange[]): IRangeService<TData> {
     addCellRange: (r) => ranges.push(r),
     setRangeToCell: () => {},
     extendLatestRangeToCell: () => {},
+    getLatestRangeEnd: () => null,
     clearCellSelection: () => {
       ranges.length = 0;
     },

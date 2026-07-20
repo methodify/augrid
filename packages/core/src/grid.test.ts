@@ -121,6 +121,40 @@ describe('Grid composition root', () => {
     grid.destroy();
   });
 
+  it('shift+arrow extends the cell range step by step from the anchor', () => {
+    const { grid, host } = mount({ cellSelection: true });
+    const root = host.querySelector('.au-root')!;
+    grid.api.setFocusedCell(2, 'name');
+    const press = (key: string, shiftKey = true) =>
+      root.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey, bubbles: true }));
+
+    press('ArrowDown');
+    press('ArrowDown');
+    press('ArrowDown');
+    let [range] = grid.api.getCellRanges();
+    expect(range.startRowIndex).toBe(2);
+    expect(range.endRowIndex).toBe(5); // grew one row per press
+    expect(range.colIds).toEqual(['name']);
+    // focus stays on the anchor while extending
+    expect(grid.api.getFocusedCell()!.rowIndex).toBe(2);
+
+    press('ArrowRight');
+    [range] = grid.api.getCellRanges();
+    expect(range.colIds).toEqual(['name', 'country']); // rectangle widens
+    expect(range.endRowIndex).toBe(5);
+
+    press('ArrowUp');
+    [range] = grid.api.getCellRanges();
+    expect(range.endRowIndex).toBe(4); // shrinks back toward the anchor
+
+    // plain arrow collapses the range and moves focus
+    press('ArrowDown', false);
+    [range] = grid.api.getCellRanges();
+    expect(range.startRowIndex).toBe(range.endRowIndex);
+    expect(grid.api.getFocusedCell()!.rowIndex).toBe(3);
+    grid.destroy();
+  });
+
   it('groups + aggregates through the full stack', () => {
     const { grid } = mount();
     grid.api.applyColumnState({ state: [{ colId: 'country', rowGroup: true }] });

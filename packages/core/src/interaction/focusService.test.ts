@@ -54,6 +54,21 @@ function makeRangeStub(): IRangeService<Row> & {
     },
     extendLatestRangeToCell: (pos: CellPosition) => {
       stub.extendCalls.push(pos);
+      // Mirror the real service: anchor row stays, end moves to pos.
+      const latest = stub.ranges[stub.ranges.length - 1];
+      if (latest) {
+        latest.endRowIndex = pos.rowIndex;
+        if (!latest.colIds.includes(pos.colId)) latest.colIds.push(pos.colId);
+      }
+    },
+    getLatestRangeEnd: () => {
+      const latest = stub.ranges[stub.ranges.length - 1];
+      if (!latest) return null;
+      return {
+        rowIndex: latest.endRowIndex,
+        colId: latest.colIds[latest.colIds.length - 1],
+        rowPinned: null,
+      };
     },
     clearCellSelection: () => {
       stub.ranges = [];

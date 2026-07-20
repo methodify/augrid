@@ -108,10 +108,14 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
     const rowCount = ctx.rowModel.getRowCount();
     if (rowCount === 0) return null;
 
-    let colIdx = cols.findIndex((c) => c.colId === from.colId);
+    // Shift+arrow steps from the range's current extension end, not from the
+    // focused cell — the focus stays on the anchor while the range grows.
+    const origin = (extendRange && ctx.range ? ctx.range.getLatestRangeEnd() : null) ?? from;
+
+    let colIdx = cols.findIndex((c) => c.colId === origin.colId);
     if (colIdx < 0) colIdx = 0;
     const nextColIdx = clamp(colIdx + dCol, 0, cols.length - 1);
-    const nextRow = clamp(from.rowIndex + dRow, 0, rowCount - 1);
+    const nextRow = clamp(origin.rowIndex + dRow, 0, rowCount - 1);
     let next: CellPosition | null = {
       rowIndex: nextRow,
       colId: cols[nextColIdx]!.colId,
@@ -130,7 +134,13 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
     }
 
     if (extendRange && ctx.range) {
+      // No range yet (e.g. focus set via API/keyboard): anchor at the focused
+      // cell first so the extension grows away from it.
+      if (ctx.range.getCellRanges().length === 0) ctx.range.setRangeToCell(from);
       ctx.range.extendLatestRangeToCell(next);
+      // Keep the growing edge on screen (spreadsheet behavior).
+      ctx.renderer.ensureIndexVisible(next.rowIndex);
+      ctx.renderer.ensureColumnVisible(next.colId);
       ctx.scheduleRender();
       return next;
     }

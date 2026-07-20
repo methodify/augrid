@@ -126,6 +126,23 @@ export class RangeService<TData = unknown> implements IRangeService<TData> {
     this.changed(finished);
   }
 
+  getLatestRangeEnd(): CellPosition | null {
+    if (this.ranges.length === 0) return null;
+    const idx = this.ranges.length - 1;
+    const range = this.ranges[idx];
+    const anchor = this.anchors[idx];
+    // Column run is contiguous with the anchor at one end; the extension end
+    // is the opposite end of the run.
+    const colIds = range.colIds;
+    const endColId =
+      colIds.length === 0
+        ? anchor.colId
+        : colIds[0] === anchor.colId
+          ? colIds[colIds.length - 1]
+          : colIds[0];
+    return { rowIndex: range.endRowIndex, colId: endColId, rowPinned: null };
+  }
+
   clearCellSelection(): void {
     this.ranges = [];
     this.anchors = [];
