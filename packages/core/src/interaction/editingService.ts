@@ -12,8 +12,13 @@ import {
   TextCellEditor,
 } from './editors';
 
+/**
+ * Editing state is keyed by the RowNode reference (and its id) — never by a
+ * snapshotted display rowIndex, which goes stale when transactions / sort /
+ * filter / expand shift the model while an edit is open. Display positions
+ * are always derived from `node.rowIndex` at read time.
+ */
 interface EditingCellState<TData> {
-  rowIndex: number;
   colId: string;
   node: RowNode<TData>;
   column: Column<TData>;
@@ -69,6 +74,10 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
   private cells: EditingCellState<TData>[] = [];
   private fullRow = false;
   private focusColId: string | null = null;
+  /** Reentrancy guard: stopEditing re-entered during its commit loop is a no-op. */
+  private stopping = false;
+  /** Unsubscribe hook for the popup-repositioning bodyScroll listener. */
+  private popupScrollListener: (() => void) | null = null;
   private onDocMouseDown: (e: MouseEvent) => void;
 
   constructor(ctx: GridContext<TData>) {
@@ -92,14 +101,31 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
   }
 
   isEditingCell(rowIndex: number, colId: string): boolean {
+    if (!this.validateEditingNode()) return false;
     for (const c of this.cells) {
-      if (c.rowIndex === rowIndex && c.colId === colId) return true;
+      if (c.node.rowIndex === rowIndex && c.colId === colId) return true;
     }
     return false;
   }
 
   getEditingCells(): CellPosition[] {
-    return this.cells.map((c) => ({ rowIndex: c.rowIndex, colId: c.colId, rowPinned: null }));
+    if (!this.validateEditingNode()) return [];
+    return this.cells.map((c) => ({ rowIndex: c.node.rowIndex, colId: c.colId, rowPinned: null }));
+  }
+
+  /**
+   * The edited node's display position may have shifted (transaction / sort /
+   * filter / expand). When the node is no longer displayed at all, the edit
+   * session cannot continue — commit it. Returns whether an edit is live.
+   */
+  private validateEditingNode(): boolean {
+    if (this.cells.length === 0) return false;
+    const node = this.cells[0]!.node;
+    if (node.rowIndex < 0 || this.ctx.rowModel.getRow(node.rowIndex) !== node) {
+      this.stopEditing(false);
+      return this.cells.length > 0; // a listener may have started a new edit
+    }
+    return true;
   }
 
   /* ----------------------------------------------------------------- start */
@@ -117,7 +143,7 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
       const started: EditingCellState<TData>[] = [];
       for (const col of this.ctx.columnModel.getDisplayedColumns()) {
         if (!this.isCellEditable(node, col)) continue;
-        const st = this.createCellState(node, col, rowIndex, col.colId === colId ? (key ?? null) : null);
+        const st = this.createCellState(node, col, col.colId === colId ? (key ?? null) : null);
         if (st) started.push(st);
       }
       if (started.length === 0) return false;
@@ -138,7 +164,7 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
       return true;
     }
 
-    const st = this.createCellState(node, column, rowIndex, key ?? null);
+    const st = this.createCellState(node, column, key ?? null);
     if (!st) return false;
     this.cells = [st];
     this.fullRow = false;
@@ -151,7 +177,6 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
   private createCellState(
     node: RowNode<TData>,
     column: Column<TData>,
-    rowIndex: number,
     key: string | null,
   ): EditingCellState<TData> | null {
     const colDef = column.getColDef();
@@ -178,7 +203,6 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
       return null;
     }
     return {
-      rowIndex,
       colId: column.colId,
       node,
       column,
@@ -219,27 +243,25 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
   /* ----------------------------------------------------------------- mount */
 
   mountEditorInto(cellEl: HTMLElement, rowIndex: number, colId: string): void {
-    const st = this.cells.find((c) => c.rowIndex === rowIndex && c.colId === colId);
+    const st = this.cells.find((c) => c.node.rowIndex === rowIndex && c.colId === colId);
     if (!st) return;
     const gui = st.comp.getGui();
     const popup = !!st.comp.isPopup?.() || !!st.column.getColDef().cellEditorPopup;
 
     if (popup) {
       const root = this.ctx.renderer.eRoot;
-      const firstAttach = !st.popupEl;
       if (!st.popupEl) {
         st.popupEl = document.createElement('div');
         st.popupEl.className = 'au-editor-popup';
         st.popupEl.appendChild(gui);
         root.appendChild(st.popupEl);
+        // Track scrolling while the popup is open so it never drifts from its cell.
+        this.subscribePopupScroll();
       }
-      // Position over the cell. Layout read is acceptable: editing is not a hot path.
-      const cellRect = cellEl.getBoundingClientRect();
-      const rootRect = root.getBoundingClientRect();
-      st.popupEl.style.left = `${cellRect.left - rootRect.left}px`;
-      st.popupEl.style.top = `${cellRect.top - rootRect.top}px`;
-      st.popupEl.style.minWidth = `${cellRect.width}px`;
-      if (firstAttach && !st.attached) {
+      st.popupEl.style.visibility = '';
+      this.positionPopup(st.popupEl, cellEl);
+      if (!st.attached) {
+        // afterGuiAttached must run exactly once per edit session.
         st.attached = true;
         st.comp.afterGuiAttached?.();
         this.refocusAfterMount(st);
@@ -250,9 +272,62 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
     if (gui.parentElement !== cellEl) {
       // Not yet in this cell (fresh edit, or row recycling moved the cell).
       cellEl.appendChild(gui);
+    }
+    if (!st.attached) {
+      // Re-attach-safe: afterGuiAttached runs exactly once per edit session,
+      // even when virtualization detaches and re-mounts the editor GUI.
       st.attached = true;
       st.comp.afterGuiAttached?.();
       this.refocusAfterMount(st);
+    }
+  }
+
+  /** Position a popup over its cell. Layout read is acceptable: editing is not a hot path. */
+  private positionPopup(popupEl: HTMLElement, cellEl: HTMLElement): void {
+    const rootRect = this.ctx.renderer.eRoot.getBoundingClientRect();
+    const cellRect = cellEl.getBoundingClientRect();
+    popupEl.style.left = `${cellRect.left - rootRect.left}px`;
+    popupEl.style.top = `${cellRect.top - rootRect.top}px`;
+    popupEl.style.minWidth = `${cellRect.width}px`;
+  }
+
+  /* --------------------------------------------------- popup scroll tracking */
+
+  private subscribePopupScroll(): void {
+    if (this.popupScrollListener) return;
+    this.popupScrollListener = () => this.repositionPopups();
+    this.ctx.events.addEventListener('bodyScroll', this.popupScrollListener);
+  }
+
+  private unsubscribePopupScroll(): void {
+    if (!this.popupScrollListener) return;
+    this.ctx.events.removeEventListener('bodyScroll', this.popupScrollListener);
+    this.popupScrollListener = null;
+  }
+
+  /**
+   * On bodyScroll: re-anchor open popups to the CURRENT cell element. When the
+   * cell is scrolled out of the rendered window, hide the popup until the cell
+   * returns (mountEditorInto shows it again) or the edit stops. Positioning
+   * reads happen on scroll events, not in the per-frame render path.
+   */
+  private repositionPopups(): void {
+    for (const st of this.cells) {
+      if (!st.popupEl) continue;
+      const cellEl =
+        st.node.rowIndex < 0
+          ? null
+          : this.ctx.renderer.getCellElement({
+              rowIndex: st.node.rowIndex,
+              colId: st.colId,
+              rowPinned: null,
+            });
+      if (!cellEl) {
+        st.popupEl.style.visibility = 'hidden';
+        continue;
+      }
+      st.popupEl.style.visibility = '';
+      this.positionPopup(st.popupEl, cellEl);
     }
   }
 
@@ -281,20 +356,35 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
   /* ------------------------------------------------------------------ stop */
 
   stopEditing(cancel = false): boolean {
+    if (this.stopping) return false; // reentered from a commit listener: no-op
     if (this.cells.length === 0) return false;
+    // Capture and clear state BEFORE the commit loop: synchronous
+    // cellValueChanged listeners must observe a non-editing grid, and a
+    // reentrant startEditing installs fresh state that this stop never
+    // clobbers (the loop and cleanup below operate on the captured array).
     const cells = this.cells;
     const wasFullRow = this.fullRow;
     const focusColId = this.focusColId ?? cells[0].colId;
-    const rowIndex = cells[0].rowIndex;
     const node = cells[0].node;
+    this.cells = [];
+    this.fullRow = false;
+    this.focusColId = null;
+    this.unsubscribePopupScroll();
 
     let anyChanged = false;
-    if (!cancel) {
-      for (const st of cells) {
-        const raw = st.comp.getValue();
-        if (st.comp.isCancelAfterEnd?.()) continue;
-        if (this.commitValue(st.node, st.colId, raw, 'edit', true)) anyChanged = true;
+    this.stopping = true;
+    try {
+      if (!cancel) {
+        for (const st of cells) {
+          // Value comes from the retained editor comp — never from the DOM —
+          // so a commit works even when the GUI was detached by scrolling.
+          const raw = st.comp.getValue();
+          if (st.comp.isCancelAfterEnd?.()) continue;
+          if (this.commitValue(st.node, st.colId, raw, 'edit', true)) anyChanged = true;
+        }
       }
+    } finally {
+      this.stopping = false;
     }
 
     for (const st of cells) {
@@ -305,11 +395,7 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
       }
     }
 
-    // Clear state BEFORE dispatching stop events so listeners see a non-editing grid.
-    this.cells = [];
-    this.fullRow = false;
-    this.focusColId = null;
-
+    const rowIndex = node.rowIndex; // current display position of the edited node
     for (const st of cells) this.dispatchCellEditingEvent('cellEditingStopped', st);
     if (wasFullRow) {
       const rowPayload = {
@@ -324,8 +410,11 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
     }
 
     this.ctx.scheduleRender();
-    // Return DOM focus to the grid cell so keyboard flow continues.
-    this.ctx.renderer.focusCellElement({ rowIndex, colId: focusColId, rowPinned: null });
+    // Return DOM focus to the grid cell so keyboard flow continues — unless a
+    // reentrant startEditing opened a new editor that should keep focus.
+    if (this.cells.length === 0) {
+      this.ctx.renderer.focusCellElement({ rowIndex, colId: focusColId, rowPinned: null });
+    }
     return true;
   }
 
@@ -397,13 +486,14 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
       colDef: st.column.getColDef(),
       colId: st.colId,
       value: this.ctx.values.getValue(st.node, st.column),
-      rowIndex: st.rowIndex,
+      rowIndex: st.node.rowIndex,
       event,
     });
   }
 
   destroy(): void {
     if (this.isEditing()) this.stopEditing(true);
+    this.unsubscribePopupScroll();
     if (typeof document !== 'undefined') {
       document.removeEventListener('mousedown', this.onDocMouseDown);
     }

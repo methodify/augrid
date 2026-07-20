@@ -103,11 +103,18 @@ export const BASE_CSS = `
 .au-pinned-container { position: absolute; top: 0; left: 0; right: 0; will-change: transform; }
 .au-body-center-vp { flex: 1 1 auto; overflow: auto; position: relative; min-width: 0; }
 .au-center-spacer { position: relative; }
+.au-fullwidth-wrap {
+  position: absolute; inset: 0; overflow: hidden;
+  pointer-events: none; z-index: 2;
+}
 .au-fullwidth-container {
-  position: absolute; top: 0; left: 0; right: 0; overflow: hidden;
+  position: absolute; top: 0; left: 0; right: 0;
   pointer-events: none; will-change: transform;
 }
 .au-fullwidth-container .au-row { pointer-events: auto; }
+.au-fullwidth-cell { left: 0; width: 100%; }
+/* Framework component mount wrapper (one per mount; removed as a node). */
+.au-fw-mount { display: contents; }
 
 /* ---------- rows / cells ---------- */
 .au-row {

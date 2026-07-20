@@ -83,6 +83,44 @@ describe('Grid composition root', () => {
     grid.destroy();
   });
 
+  it('enableCellChangeFlash (grid option) flashes the changed cell (C26)', () => {
+    const { grid, host } = mount({ enableCellChangeFlash: true });
+    grid.api.getDisplayedRowAtIndex(0)!.setDataValue('gold', 42, 'edit');
+    const cell = host.querySelector('.au-row[data-au-row-index="0"] [data-au-col="gold"]')!;
+    expect(cell.classList.contains('au-cell-flash')).toBe(true);
+    // untouched cells do not flash
+    const other = host.querySelector('.au-row[data-au-row-index="0"] [data-au-col="name"]')!;
+    expect(other.classList.contains('au-cell-flash')).toBe(false);
+    grid.destroy();
+  });
+
+  it('colDef.enableCellChangeFlash flashes without the grid-wide option (C26)', () => {
+    const defs: ColDef<Row>[] = [
+      { field: 'name', editable: true },
+      { field: 'country' },
+      { field: 'gold', editable: true, enableCellChangeFlash: true },
+    ];
+    const { grid, host } = mount({ columnDefs: defs });
+    grid.api.getDisplayedRowAtIndex(1)!.setDataValue('gold', 7, 'edit');
+    const cell = host.querySelector('.au-row[data-au-row-index="1"] [data-au-col="gold"]')!;
+    expect(cell.classList.contains('au-cell-flash')).toBe(true);
+    grid.destroy();
+  });
+
+  it('columnDefs updates invalidate rendered body cells (C30)', () => {
+    const { grid, host } = mount();
+    const cell = () => host.querySelector('.au-row[data-au-row-index="0"] [data-au-col="name"]')!;
+    expect(cell().textContent).toBe('A0');
+    grid.api.setGridOption('columnDefs', [
+      { field: 'name', valueFormatter: (p) => `» ${p.value}` },
+      { field: 'country' },
+      { field: 'gold' },
+    ] satisfies ColDef<Row>[]);
+    grid.getContext().renderer.renderNow();
+    expect(cell().textContent).toBe('» A0');
+    grid.destroy();
+  });
+
   it('groups + aggregates through the full stack', () => {
     const { grid } = mount();
     grid.api.applyColumnState({ state: [{ colId: 'country', rowGroup: true }] });

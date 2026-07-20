@@ -134,7 +134,10 @@ export interface GridOptions<TData = unknown> extends GridOptionEventCallbacks<T
   pivotMode?: boolean;
   treeData?: boolean;
   getDataPath?: (data: TData) => string[];
-  /** Group rows sorted by key when no explicit sort (default true). */
+  /**
+   * Comparator ordering group rows when no explicit sort applies.
+   * Default keeps first-encounter (key insertion) order.
+   */
   initialGroupOrderComparator?: (params: {
     nodeA: IRowNode<TData>;
     nodeB: IRowNode<TData>;
@@ -207,7 +210,4 @@ export interface GridOptions<TData = unknown> extends GridOptionEventCallbacks<T
 
   /* misc */
   context?: unknown;
-  getLocaleText?: (key: string, defaultValue: string) => string;
-  /** Debug logging to console. */
-  debug?: boolean;
 }

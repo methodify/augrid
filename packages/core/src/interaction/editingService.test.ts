@@ -322,6 +322,221 @@ describe('EditingService — events', () => {
   });
 });
 
+describe('EditingService — stopEditing reentrancy (C10)', () => {
+  it('a cellValueChanged listener starting a new edit during stop is not clobbered', () => {
+    const { ctx, svc } = setup();
+    let reentered = false;
+    ctx.events.addEventListener('cellValueChanged', () => {
+      if (reentered) return;
+      reentered = true;
+      // Listener must observe a non-editing grid mid-stop…
+      expect(svc.isEditing()).toBe(false);
+      // …and be able to open a fresh edit that survives the outer stop.
+      expect(svc.startEditing({ rowIndex: 1, colId: 'name' })).toBe(true);
+    });
+
+    svc.startEditing({ rowIndex: 0, colId: 'name' });
+    const cellEl = document.createElement('div');
+    svc.mountEditorInto(cellEl, 0, 'name');
+    cellEl.querySelector('input')!.value = 'Zed';
+    svc.stopEditing(false);
+
+    expect(reentered).toBe(true);
+    expect(ctx.rowModel.getRow(0)!.data!.name).toBe('Zed');
+    expect(svc.isEditing()).toBe(true);
+    expect(svc.isEditingCell(1, 'name')).toBe(true); // reentrant edit intact
+    svc.stopEditing(true);
+    svc.destroy();
+  });
+
+  it('stopEditing re-entered from a commit listener is a no-op', () => {
+    const { ctx, svc } = setup();
+    const stopped: unknown[] = [];
+    ctx.events.addEventListener('cellEditingStopped', (e) => stopped.push(e));
+    let reentrantResult: boolean | null = null;
+    let calls = 0;
+    ctx.events.addEventListener('cellValueChanged', () => {
+      if (calls++ === 0) reentrantResult = svc.stopEditing(false);
+    });
+
+    svc.startEditing({ rowIndex: 0, colId: 'name' });
+    const cellEl = document.createElement('div');
+    svc.mountEditorInto(cellEl, 0, 'name');
+    cellEl.querySelector('input')!.value = 'Once';
+    svc.stopEditing(false);
+
+    expect(reentrantResult).toBe(false); // guarded no-op
+    expect(stopped).toHaveLength(1); // stop lifecycle ran exactly once
+    expect(ctx.rowModel.getRow(0)!.data!.name).toBe('Once');
+    svc.destroy();
+  });
+});
+
+describe('EditingService — editing keyed by RowNode, not display index (C11)', () => {
+  it('tracks the node when a transaction shifts display indices mid-edit', () => {
+    const { ctx, svc } = setup();
+    svc.startEditing({ rowIndex: 1, colId: 'name' }); // Bob
+    const node = ctx.rowModel.getRow(1)!;
+    const cellEl = document.createElement('div');
+    svc.mountEditorInto(cellEl, 1, 'name');
+    cellEl.querySelector('input')!.value = 'Bobby';
+
+    // Insert a row above: Bob shifts from display index 1 to 2.
+    ctx.rowModel.applyTransaction!({
+      add: [{ name: 'New', age: 1, locked: 'n' }],
+      addIndex: 0,
+    });
+    expect(ctx.rowModel.getRow(2)).toBe(node);
+
+    expect(svc.isEditingCell(1, 'name')).toBe(false); // old index no longer matches
+    expect(svc.isEditingCell(2, 'name')).toBe(true); // follows the node
+    expect(svc.getEditingCells()).toEqual([{ rowIndex: 2, colId: 'name', rowPinned: null }]);
+
+    svc.stopEditing(false);
+    expect(node.data!.name).toBe('Bobby'); // committed to the right record
+    expect(ctx.rowModel.getRow(1)!.data!.name).toBe('Ann'); // neighbours untouched
+    expect(ctx.rowModel.getRow(0)!.data!.name).toBe('New');
+    svc.destroy();
+  });
+
+  it('stops (committing) when the edited node is no longer displayed', () => {
+    const { ctx, svc } = setup();
+    svc.startEditing({ rowIndex: 0, colId: 'name' });
+    const node = ctx.rowModel.getRow(0)!;
+    const cellEl = document.createElement('div');
+    svc.mountEditorInto(cellEl, 0, 'name');
+    cellEl.querySelector('input')!.value = 'Gone';
+
+    ctx.rowModel.applyTransaction!({ remove: [node.data!] });
+
+    // Next isEditingCell check detects the stale node and ends the edit.
+    expect(svc.isEditingCell(0, 'name')).toBe(false);
+    expect(svc.isEditing()).toBe(false);
+    expect(node.data!.name).toBe('Gone'); // committed, not silently dropped
+    svc.destroy();
+  });
+});
+
+describe('EditingService — editor GUI detach tolerance (C12)', () => {
+  it('afterGuiAttached runs only once per edit session across re-mounts', () => {
+    let attachedCalls = 0;
+    class SpyEditor implements CellEditorComp<Data> {
+      private e = document.createElement('input');
+      init(params: CellEditorParams<Data>): void {
+        this.e.value = String(params.value ?? '');
+      }
+      getGui(): HTMLElement {
+        return this.e;
+      }
+      getValue(): unknown {
+        return this.e.value;
+      }
+      afterGuiAttached(): void {
+        attachedCalls++;
+      }
+    }
+    const { svc } = setup({
+      columnDefs: [{ field: 'name', editable: true, cellEditor: SpyEditor }],
+    });
+    svc.startEditing({ rowIndex: 0, colId: 'name' });
+
+    const el1 = document.createElement('div');
+    svc.mountEditorInto(el1, 0, 'name');
+    svc.mountEditorInto(el1, 0, 'name'); // idempotent re-mount, same cell
+
+    // Virtualization detached the GUI, then the row re-entered the window.
+    el1.querySelector('input')!.remove();
+    const el2 = document.createElement('div');
+    svc.mountEditorInto(el2, 0, 'name');
+
+    expect(attachedCalls).toBe(1);
+    expect(el2.querySelector('input')).not.toBeNull(); // GUI re-attached
+    svc.stopEditing(true);
+    svc.destroy();
+  });
+
+  it('stopEditing commits from the retained comp when the GUI is detached', () => {
+    const { ctx, svc } = setup();
+    svc.startEditing({ rowIndex: 0, colId: 'name' });
+    const cellEl = document.createElement('div');
+    svc.mountEditorInto(cellEl, 0, 'name');
+    const input = cellEl.querySelector('input')!;
+    input.value = 'Detached';
+    input.remove(); // scrolled out: cell contents destroyed
+
+    svc.stopEditing(false);
+
+    expect(ctx.rowModel.getRow(0)!.data!.name).toBe('Detached');
+    svc.destroy();
+  });
+});
+
+describe('EditingService — popup follows scroll (C14)', () => {
+  function scrollEvent(ctx: ReturnType<typeof setup>['ctx']) {
+    ctx.events.dispatch({
+      type: 'bodyScroll',
+      api: ctx.api,
+      context: undefined,
+      left: 0,
+      top: 100,
+      direction: 'vertical',
+    });
+  }
+
+  it('repositions on bodyScroll, hides when the cell is unrendered, shows on return', () => {
+    const { ctx, svc } = setup({
+      columnDefs: [{ field: 'name', editable: true, cellEditor: 'largeText' }],
+    });
+    const cellEl = document.createElement('div');
+    cellEl.getBoundingClientRect = () =>
+      ({ left: 50, top: 70, width: 120, height: 32, right: 170, bottom: 102, x: 50, y: 70 }) as DOMRect;
+    let currentCell: HTMLElement | null = cellEl;
+    ctx.renderer.getCellElement = vi.fn(() => currentCell);
+
+    svc.startEditing({ rowIndex: 0, colId: 'name' });
+    svc.mountEditorInto(cellEl, 0, 'name');
+    const popup = ctx.renderer.eRoot.querySelector('.au-editor-popup') as HTMLElement;
+    expect(popup).not.toBeNull();
+
+    // Scroll while the cell is rendered: reposition from the CURRENT element.
+    scrollEvent(ctx);
+    expect(ctx.renderer.getCellElement).toHaveBeenCalled();
+    expect(popup.style.left).toBe('50px');
+    expect(popup.style.top).toBe('70px');
+    expect(popup.style.visibility).toBe('');
+
+    // Cell scrolled out of the rendered window: popup hides, edit stays alive.
+    currentCell = null;
+    scrollEvent(ctx);
+    expect(popup.style.visibility).toBe('hidden');
+    expect(svc.isEditing()).toBe(true);
+
+    // Cell re-enters the window: renderer re-mounts, popup shows again.
+    currentCell = cellEl;
+    svc.mountEditorInto(cellEl, 0, 'name');
+    expect(popup.style.visibility).toBe('');
+
+    svc.stopEditing(true);
+    svc.destroy();
+  });
+
+  it('unsubscribes from bodyScroll when the edit stops', () => {
+    const { ctx, svc } = setup({
+      columnDefs: [{ field: 'name', editable: true, cellEditor: 'largeText' }],
+    });
+    const off = vi.spyOn(ctx.events, 'removeEventListener');
+    svc.startEditing({ rowIndex: 0, colId: 'name' });
+    svc.mountEditorInto(document.createElement('div'), 0, 'name');
+
+    svc.stopEditing(true);
+    expect(off).toHaveBeenCalledWith('bodyScroll', expect.any(Function));
+
+    // A later scroll must not touch the removed popup / throw.
+    scrollEvent(ctx);
+    svc.destroy();
+  });
+});
+
 describe('EditingService — stopEditingWhenCellsLoseFocus', () => {
   it('a mousedown outside the grid root commits the edit', () => {
     const { ctx, svc } = setup();

@@ -176,8 +176,8 @@ export class FilterManager<TData = unknown> implements IFilterManager<TData> {
 
   /* -------------------------------------------------------------- floating */
 
-  mountFloatingFilter(container: HTMLElement, column: Column<TData>): void {
-    mountFloatingFilter(this.ctx, container, column);
+  mountFloatingFilter(container: HTMLElement, column: Column<TData>): () => void {
+    return mountFloatingFilter(this.ctx, container, column);
   }
 
   /* ---------------------------------------------------------- filter kinds */

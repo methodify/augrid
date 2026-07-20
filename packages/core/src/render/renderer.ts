@@ -1,7 +1,7 @@
 import type { GridContext } from '../context';
 import type { Column } from '../columns/column';
 import type { RowNode } from '../rows/rowNode';
-import { RowBand } from './rowRenderer';
+import { RowBand, FullWidthBand } from './rowRenderer';
 import { HeaderRenderer } from './headerRenderer';
 import { el, closestWithAttr } from '../utils/dom';
 import { clamp } from '../utils/general';
@@ -10,11 +10,15 @@ import type { ClientSideRowModel } from '../rows/clientSideRowModel';
 
 interface CellHit<TData> {
   node: RowNode<TData>;
-  column: Column<TData>;
+  /** Null for full-width rows (data-au-col="au-fullwidth" has no real column). */
+  column: Column<TData> | null;
   rowIndex: number;
   rowPinned: 'top' | 'bottom' | null;
   cellEl: HTMLElement;
 }
+
+/** Shared immutable empty list (avoids a per-frame allocation). */
+const EMPTY_NODES: never[] = [];
 
 export class GridRenderer<TData = unknown> {
   private ctx: GridContext<TData>;
@@ -48,11 +52,14 @@ export class GridRenderer<TData = unknown> {
   private ePinnedBottomRight!: HTMLElement;
   private eOverlay!: HTMLElement;
   private ePaging!: HTMLElement;
+  private eFullWidthWrap!: HTMLElement;
+  private eFullWidthContainer!: HTMLElement;
 
   private headerRenderer!: HeaderRenderer<TData>;
   private bodyBand!: RowBand<TData>;
   private topBand!: RowBand<TData>;
   private bottomBand!: RowBand<TData>;
+  private fullWidthBand!: FullWidthBand<TData>;
 
   private scrollTop = 0;
   private scrollLeft = 0;
@@ -66,13 +73,27 @@ export class GridRenderer<TData = unknown> {
   private scrollEndTimer: ReturnType<typeof setTimeout> | null = null;
   private lastVisible = { first: 0, last: -1 };
   private destroyed = false;
+  /** Header row depth, refreshed with the header (aria-rowcount and offsets). */
+  private headerDepth = 1;
+  /** Per-header-cell geometry cache for the cheap (non-dirty) header path. */
+  private headerGeom = new Map<string, { left: number; width: number }>();
+  /** autoHeight: last measured node __version per node id. */
+  private measuredVersions = new Map<string, number>();
+  private lastDisplayedRef: unknown = null;
+  private autoHeightCols: Column<TData>[] = [];
+  private lastRootRole = '';
+  private lastMultiselect: boolean | null = null;
+  private lastAriaRowCount = -1;
+  private lastAriaColCount = -1;
 
   constructor(ctx: GridContext<TData>, host: HTMLElement) {
     this.ctx = ctx;
+    // Role/aria-multiselectable are kept current per render pass: 'treegrid'
+    // only while grouping/tree data is active, multiselectable only for
+    // multiRow selection.
     this.eRoot = el('div', 'au-root', {
-      role: 'treegrid',
+      role: 'grid',
       tabindex: '0',
-      'aria-multiselectable': 'true',
     });
     host.appendChild(this.eRoot);
     this.buildScaffold();
@@ -91,6 +112,7 @@ export class GridRenderer<TData = unknown> {
     this.bodyBand = new RowBand(ctx, { left: this.eBodyLeftContainer, center: this.eCenterSpacer, right: this.eBodyRightContainer }, null);
     this.topBand = new RowBand(ctx, { left: this.ePinnedTopLeft, center: this.ePinnedTopCenter, right: this.ePinnedTopRight }, 'top');
     this.bottomBand = new RowBand(ctx, { left: this.ePinnedBottomLeft, center: this.ePinnedBottomCenter, right: this.ePinnedBottomRight }, 'bottom');
+    this.fullWidthBand = new FullWidthBand(ctx, this.eFullWidthContainer);
     this.wireEvents();
     this.observeSize();
   }
@@ -133,7 +155,12 @@ export class GridRenderer<TData = unknown> {
     this.eBodyRight = el('div', 'au-body-right');
     this.eBodyRightContainer = el('div', 'au-pinned-container');
     this.eBodyRight.appendChild(this.eBodyRightContainer);
-    this.eBody.append(this.eBodyLeft, this.eBodyCenterVp, this.eBodyRight);
+    // Full-width rows overlay: wrapper clips to the body, inner container is
+    // y-synced (translateY) with body scroll and x-pinned to the viewport.
+    this.eFullWidthWrap = el('div', 'au-fullwidth-wrap');
+    this.eFullWidthContainer = el('div', 'au-fullwidth-container');
+    this.eFullWidthWrap.appendChild(this.eFullWidthContainer);
+    this.eBody.append(this.eBodyLeft, this.eBodyCenterVp, this.eBodyRight, this.eFullWidthWrap);
 
     this.ePinnedBottom = el('div', 'au-pinned-bottom');
     this.ePinnedBottomLeft = el('div', 'au-pinned-row-left');
@@ -244,8 +271,10 @@ export class GridRenderer<TData = unknown> {
     const colId = cellEl.getAttribute('data-au-col')!;
     const rowId = rowEl.getAttribute('data-au-row-id')!;
     const rowIndex = Number(rowEl.getAttribute('data-au-row-index'));
-    const column = this.ctx.columnModel.getColumn(colId);
-    if (!column) return null;
+    const column = this.ctx.columnModel.getColumn(colId) ?? null;
+    // Full-width rows have no real column; row-level events and expand
+    // clicks must still work, so keep the hit with column = null.
+    if (!column && colId !== 'au-fullwidth') return null;
     let node: RowNode<TData> | undefined;
     let rowPinned: 'top' | 'bottom' | null = null;
     if (rowId.startsWith('pinned-top-')) {
@@ -262,16 +291,18 @@ export class GridRenderer<TData = unknown> {
     return { node, column, rowIndex, rowPinned, cellEl };
   }
 
+  /** Only called for hits with a real column (never full-width cells). */
   private cellEventPayload(hit: CellHit<TData>, e: Event) {
+    const column = hit.column!;
     return {
       api: this.ctx.api,
       context: this.ctx.options.get('context'),
       node: hit.node,
       data: hit.node.data,
-      column: hit.column,
-      colDef: hit.column.getColDef(),
-      colId: hit.column.colId,
-      value: this.ctx.values.getValue(hit.node, hit.column),
+      column,
+      colDef: column.getColDef(),
+      colId: column.colId,
+      value: this.ctx.values.getValue(hit.node, column),
       rowIndex: hit.rowIndex,
       event: e,
     };
@@ -285,7 +316,7 @@ export class GridRenderer<TData = unknown> {
       return;
     }
     const hit = this.cellFromEvent(e);
-    if (!hit) return;
+    if (!hit || !hit.column) return;
     if (e.button !== 0) return;
     // Focus the cell (unless clicking checkbox/expand controls)
     const isControl =
@@ -332,7 +363,7 @@ export class GridRenderer<TData = unknown> {
       this.ctx.selection?.setSelected([hit.node], checked, 'checkbox');
       return;
     }
-    this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellClicked' });
+    if (hit.column) this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellClicked' });
     this.ctx.events.dispatch({
       type: 'rowClicked',
       api: this.ctx.api,
@@ -344,8 +375,10 @@ export class GridRenderer<TData = unknown> {
     });
     if (hit.rowPinned == null) this.ctx.selection?.handleRowClick(hit.node, e);
     // single-click editing
-    const single = this.ctx.options.is('singleClickEdit') || hit.column.getColDef().singleClickEdit === true;
-    if (single && hit.rowPinned == null) {
+    const single =
+      hit.column != null &&
+      (this.ctx.options.is('singleClickEdit') || hit.column.getColDef().singleClickEdit === true);
+    if (single && hit.rowPinned == null && hit.column) {
       this.ctx.editing?.startEditing({ rowIndex: hit.rowIndex, colId: hit.column.colId, event: e });
     }
   }
@@ -353,7 +386,7 @@ export class GridRenderer<TData = unknown> {
   private onDblClick(e: MouseEvent): void {
     const hit = this.cellFromEvent(e);
     if (!hit) return;
-    this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellDoubleClicked' });
+    if (hit.column) this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellDoubleClicked' });
     this.ctx.events.dispatch({
       type: 'rowDoubleClicked',
       api: this.ctx.api,
@@ -363,14 +396,14 @@ export class GridRenderer<TData = unknown> {
       rowIndex: hit.rowIndex,
       event: e,
     });
-    if (hit.rowPinned == null) {
+    if (hit.rowPinned == null && hit.column) {
       this.ctx.editing?.startEditing({ rowIndex: hit.rowIndex, colId: hit.column.colId, event: e });
     }
   }
 
   private onContextMenu(e: MouseEvent): void {
     const hit = this.cellFromEvent(e);
-    if (!hit) return;
+    if (!hit || !hit.column) return;
     this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellContextMenu' });
   }
 
@@ -423,12 +456,23 @@ export class GridRenderer<TData = unknown> {
     const displayed = ctx.columnModel.getDisplayed();
     const widths = ctx.columnModel.getRegionWidths();
 
+    if (displayed !== this.lastDisplayedRef) {
+      this.lastDisplayedRef = displayed;
+      this.autoHeightCols = displayed.all.filter((c) => c.getColDef().autoHeight === true);
+    }
+
     if (this.headerDirty) {
       this.headerRenderer.refresh();
       this.headerDirty = false;
+      this.headerDepth = ctx.columnModel.getHeaderLayout().depth;
+      this.headerGeom.clear();
+      for (const c of displayed.all) this.headerGeom.set(c.colId, { left: c.left, width: c.actualWidth });
     } else {
       this.headerRenderer.updateSortIndicators();
       this.headerRenderer.updateHeaderCheckbox();
+      // Cheap header-geometry path: live column resize/reflow updates existing
+      // header cells' left/width without a full header rebuild.
+      this.updateHeaderGeometry(displayed, widths);
     }
 
     // region sizing
@@ -448,10 +492,11 @@ export class GridRenderer<TData = unknown> {
     this.eFloatingCenter.style.transform = tx;
     this.ePinnedTopCenter.style.transform = tx;
     this.ePinnedBottomCenter.style.transform = tx;
-    // sync vertical: pinned side containers follow center scroll
+    // sync vertical: pinned side + full-width containers follow center scroll
     const ty = `translateY(${-this.scrollTop}px)`;
     this.eBodyLeftContainer.style.transform = ty;
     this.eBodyRightContainer.style.transform = ty;
+    this.eFullWidthContainer.style.transform = ty;
 
     // visible rows
     const rowCount = model.getRowCount();
@@ -470,16 +515,67 @@ export class GridRenderer<TData = unknown> {
       if (n) visibleNodes.push(n);
     }
 
+    // Keep the row being edited alive even outside the window: its DOM (and
+    // the editor state living in it) survives; it is positioned at its real
+    // rowTop and simply scrolls out of view.
+    const editingCells = ctx.editing?.getEditingCells() ?? [];
+    for (const pos of editingCells) {
+      if (pos.rowPinned != null) continue;
+      if (pos.rowIndex >= first && pos.rowIndex <= last) continue;
+      const n = model.getRow(pos.rowIndex);
+      if (n && !visibleNodes.includes(n)) visibleNodes.push(n);
+    }
+
     // visible center columns
     const centerCols = this.visibleCenterColumns(displayed.center);
 
-    this.bodyBand.render(visibleNodes, displayed.left, centerCols, displayed.right, widths, 0);
+    // Shared displayed-column index map: built ONCE per render pass and passed
+    // to every band (aria-colindex source).
+    const allColIndex = new Map<string, number>();
+    displayed.all.forEach((c, i) => allColIndex.set(c.colId, i));
+
+    // ARIA offsets: header rows precede pinned-top rows precede body rows.
+    const modelWithPinned = model as ClientSideRowModel<TData>;
+    const pinnedTopCount = modelWithPinned.getPinnedRows ? modelWithPinned.getPinnedRows('top').length : 0;
+    const pinnedBottomCount = modelWithPinned.getPinnedRows ? modelWithPinned.getPinnedRows('bottom').length : 0;
+    const bodyAriaOffset = this.headerDepth + pinnedTopCount;
+
+    this.updateRootAria(displayed.all.length, rowCount, pinnedTopCount, pinnedBottomCount);
+
+    // Full-width rows: groupDisplayType 'groupRows' group nodes and
+    // isFullWidthRow leaf rows render as a single viewport-wide row; region
+    // bands skip them.
+    const groupRowsMode = ctx.options.get('groupDisplayType') === 'groupRows';
+    const isFullWidthFn = ctx.options.get('isFullWidthRow');
+    let regionNodes = visibleNodes;
+    let fwNodes: RowNode<TData>[] | null = null;
+    if (groupRowsMode || isFullWidthFn) {
+      regionNodes = [];
+      fwNodes = [];
+      for (const n of visibleNodes) {
+        if ((groupRowsMode && n.group && !n.footer) || (isFullWidthFn && isFullWidthFn({ rowNode: n }) === true)) {
+          fwNodes.push(n);
+        } else {
+          regionNodes.push(n);
+        }
+      }
+    }
+
+    this.bodyBand.render(regionNodes, displayed.left, centerCols, displayed.right, widths, bodyAriaOffset, allColIndex);
+    const fwWidth = this.viewportWidth > 0 ? this.viewportWidth : widths.left + widths.center + widths.right;
+    this.fullWidthBand.render(fwNodes ?? EMPTY_NODES, fwWidth, bodyAriaOffset, groupRowsMode);
 
     // pinned rows
-    this.renderPinned(displayed, widths, centerCols);
+    this.renderPinned(displayed, widths, centerCols, allColIndex, rowCount, pinnedTopCount);
 
     // overlays
     this.updateOverlay(rowCount);
+
+    // autoHeight: one intentional batched READ phase at the end of the frame,
+    // after all writes. Only rows whose content version changed since their
+    // last measurement are read; height changes route through the row model,
+    // which schedules a fresh (write-only) pass.
+    if (this.autoHeightCols.length > 0) this.measureAutoHeights(regionNodes);
 
     if (first !== this.lastVisible.first || last !== this.lastVisible.last) {
       this.lastVisible = { first, last };
@@ -516,6 +612,9 @@ export class GridRenderer<TData = unknown> {
     displayed: { left: Column<TData>[]; center: Column<TData>[]; right: Column<TData>[] },
     widths: { left: number; center: number; right: number },
     centerCols: Column<TData>[],
+    allColIndex: Map<string, number>,
+    displayedRowCount: number,
+    pinnedTopCount: number,
   ): void {
     const model = this.ctx.rowModel as ClientSideRowModel<TData>;
     const top = model.getPinnedRows ? model.getPinnedRows('top') : [];
@@ -546,10 +645,127 @@ export class GridRenderer<TData = unknown> {
     };
     sizeBand(this.ePinnedTop, this.ePinnedTopLeft, this.ePinnedTopRight, top);
     sizeBand(this.ePinnedBottom, this.ePinnedBottomLeft, this.ePinnedBottomRight, bottom);
-    if (top.length > 0) this.topBand.render(top, displayed.left, centerCols, displayed.right, widths, 0);
+    // ARIA offsets: top band follows the header rows; bottom band follows
+    // header + pinned-top + all displayed body rows.
+    const topOffset = this.headerDepth;
+    const bottomOffset = this.headerDepth + pinnedTopCount + displayedRowCount;
+    if (top.length > 0)
+      this.topBand.render(top, displayed.left, centerCols, displayed.right, widths, topOffset, allColIndex);
     else this.topBand.clear();
-    if (bottom.length > 0) this.bottomBand.render(bottom, displayed.left, centerCols, displayed.right, widths, 0);
+    if (bottom.length > 0)
+      this.bottomBand.render(bottom, displayed.left, centerCols, displayed.right, widths, bottomOffset, allColIndex);
     else this.bottomBand.clear();
+  }
+
+  /* -------------------------------------------------- root ARIA attributes */
+
+  private updateRootAria(
+    colCount: number,
+    displayedRowCount: number,
+    pinnedTopCount: number,
+    pinnedBottomCount: number,
+  ): void {
+    const ctx = this.ctx;
+    // treegrid only while grouping / tree data is active; plain grid otherwise.
+    const grouping = ctx.columnModel.getRowGroupColumns().length > 0 || ctx.options.get('treeData') === true;
+    const role = grouping ? 'treegrid' : 'grid';
+    if (role !== this.lastRootRole) {
+      this.eRoot.setAttribute('role', role);
+      this.lastRootRole = role;
+    }
+    const sel = ctx.options.get('rowSelection');
+    const multi = (typeof sel === 'string' ? sel : sel?.mode) === 'multiRow';
+    if (multi !== this.lastMultiselect) {
+      if (multi) this.eRoot.setAttribute('aria-multiselectable', 'true');
+      else this.eRoot.removeAttribute('aria-multiselectable');
+      this.lastMultiselect = multi;
+    }
+    const rowTotal = this.headerDepth + pinnedTopCount + displayedRowCount + pinnedBottomCount;
+    if (rowTotal !== this.lastAriaRowCount) {
+      this.eRoot.setAttribute('aria-rowcount', String(rowTotal));
+      this.lastAriaRowCount = rowTotal;
+    }
+    if (colCount !== this.lastAriaColCount) {
+      this.eRoot.setAttribute('aria-colcount', String(colCount));
+      this.lastAriaColCount = colCount;
+    }
+  }
+
+  /* -------------------------------------------- cheap header geometry pass */
+
+  /**
+   * When the header is not dirty (e.g. live column resize drag), update the
+   * existing header cells' left/width and the region container widths from
+   * current column state. Change detection runs against a cached geometry map
+   * first, so untouched frames cost one numeric loop and zero DOM work.
+   */
+  private updateHeaderGeometry(
+    displayed: { left: Column<TData>[]; center: Column<TData>[]; right: Column<TData>[]; all: Column<TData>[] },
+    widths: { left: number; center: number; right: number },
+  ): void {
+    let dirty = false;
+    for (const c of displayed.all) {
+      const g = this.headerGeom.get(c.colId);
+      if (!g || g.left !== c.left || g.width !== c.actualWidth) {
+        dirty = true;
+        break;
+      }
+    }
+    if (!dirty) return;
+    // Prefer the HeaderRenderer's cell map when available; fall back to a
+    // DOM query (this branch only runs on actual geometry changes).
+    const map =
+      (this.headerRenderer as unknown as { getHeaderCellMap?: () => Map<string, HTMLElement> }).getHeaderCellMap?.() ??
+      null;
+    let queried: Map<string, HTMLElement> | null = null;
+    if (!map) {
+      queried = new Map();
+      for (const cell of this.eHeader.querySelectorAll<HTMLElement>('[data-au-header-col]')) {
+        queried.set(cell.getAttribute('data-au-header-col')!, cell);
+      }
+    }
+    const lookup = map ?? queried!;
+    for (const c of displayed.all) {
+      const g = this.headerGeom.get(c.colId);
+      if (g && g.left === c.left && g.width === c.actualWidth) continue;
+      const cell = lookup.get(c.colId);
+      if (cell) {
+        cell.style.left = `${c.left}px`;
+        cell.style.width = `${c.actualWidth}px`;
+      }
+      this.headerGeom.set(c.colId, { left: c.left, width: c.actualWidth });
+    }
+    this.eHeaderLeft.style.width = `${widths.left}px`;
+    this.eHeaderRight.style.width = `${widths.right}px`;
+    this.eHeaderCenter.style.width = `${widths.center}px`;
+    this.eFloatingLeft.style.width = `${widths.left}px`;
+    this.eFloatingRight.style.width = `${widths.right}px`;
+    this.eFloatingCenter.style.width = `${widths.center}px`;
+  }
+
+  /* --------------------------------------------------- autoHeight measuring */
+
+  /**
+   * Single batched READ phase (the only intentional layout read in the render
+   * path): measure scrollHeight of autoHeight cells for rows whose content
+   * version changed since their last measurement, then hand differing heights
+   * (>1px) to the row model, which recomputes tops and schedules a new pass.
+   */
+  private measureAutoHeights(nodes: RowNode<TData>[]): void {
+    const model = this.ctx.rowModel as ClientSideRowModel<TData>;
+    if (typeof model.setRowHeight !== 'function') return;
+    for (const node of nodes) {
+      if (this.measuredVersions.get(node.id) === node.__version) continue;
+      let h = 0;
+      for (const col of this.autoHeightCols) {
+        const cell = this.bodyBand.getCellElement(node.id, col.colId);
+        if (cell) h = Math.max(h, cell.scrollHeight);
+      }
+      this.measuredVersions.set(node.id, node.__version);
+      if (h > 0 && Math.abs(h - node.rowHeight) > 1) {
+        model.setRowHeight(node, h);
+      }
+    }
   }
 
   private updateOverlay(rowCount: number): void {
@@ -667,6 +883,7 @@ export class GridRenderer<TData = unknown> {
       this.topBand.invalidateAll(params?.colIds);
       this.bottomBand.invalidateAll(params?.colIds);
     }
+    this.fullWidthBand.invalidateAll();
     this.schedule();
   }
 
@@ -674,38 +891,40 @@ export class GridRenderer<TData = unknown> {
     this.bodyBand.clear();
     this.topBand.clear();
     this.bottomBand.clear();
+    this.fullWidthBand.clear();
+    this.measuredVersions.clear();
     this.headerDirty = true;
     this.schedule();
   }
 
   flashCells(rowIds: Set<string> | null, colIds: Set<string> | null): void {
     const duration = this.ctx.options.get('cellFlashDuration') ?? 700;
-    const flashBand = (band: RowBand<TData>) => {
-      void band;
-    };
-    void flashBand;
-    // flash rendered cells matching filter
-    const apply = (rowId: string) => {
-      const cols = colIds ?? new Set(this.ctx.columnModel.getDisplayedColumns().map((c) => c.colId));
+    // Two-pass write→read→write: collect all targets, strip the class from
+    // every one, do a SINGLE reflow read (restarts the CSS animation), then
+    // add the class to all — instead of a write-read-write per cell.
+    const targets: HTMLElement[] = [];
+    const cols = colIds ?? new Set(this.ctx.columnModel.getDisplayedColumns().map((c) => c.colId));
+    const collect = (rowId: string) => {
       for (const colId of cols) {
         const cell = this.bodyBand.getCellElement(rowId, colId);
-        if (cell) {
-          cell.classList.remove('au-cell-flash');
-          // force restart of animation
-          void cell.offsetWidth;
-          cell.classList.add('au-cell-flash');
-          setTimeout(() => cell.classList.remove('au-cell-flash'), duration + 50);
-        }
+        if (cell) targets.push(cell);
       }
     };
-    if (rowIds) for (const id of rowIds) apply(id);
+    if (rowIds) for (const id of rowIds) collect(id);
     else {
       const { first, last } = this.lastVisible;
       for (let i = first; i <= last; i++) {
         const n = this.ctx.rowModel.getRow(i);
-        if (n) apply(n.id);
+        if (n) collect(n.id);
       }
     }
+    if (targets.length === 0) return;
+    for (const cell of targets) cell.classList.remove('au-cell-flash');
+    void targets[0].offsetWidth; // one reflow for the whole batch
+    for (const cell of targets) cell.classList.add('au-cell-flash');
+    setTimeout(() => {
+      for (const cell of targets) cell.classList.remove('au-cell-flash');
+    }, duration + 50);
   }
 
   /** Measure content width for autosize. Uses a hidden measuring element. */
@@ -741,6 +960,7 @@ export class GridRenderer<TData = unknown> {
     this.bodyBand.destroy();
     this.topBand.destroy();
     this.bottomBand.destroy();
+    this.fullWidthBand.destroy();
     this.eRoot.remove();
   }
 }

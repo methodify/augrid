@@ -280,6 +280,49 @@ describe('FocusService', () => {
     });
   });
 
+  describe('keyboard entry: initFocusIfNone (C2)', () => {
+    it('first ArrowDown with no focused cell focuses the first cell and is consumed', () => {
+      const { focus } = setup();
+
+      const e = keydown({ key: 'ArrowDown' });
+      focus.onKeyDown(e);
+
+      // First press only initialises focus — no movement.
+      expect(focus.getFocusedCell()).toEqual({ rowIndex: 0, colId: 'a', rowPinned: null });
+      expect(e.defaultPrevented).toBe(true);
+
+      // Second press navigates normally.
+      focus.onKeyDown(keydown({ key: 'ArrowDown' }));
+      expect(focus.getFocusedCell()).toEqual({ rowIndex: 1, colId: 'a', rowPinned: null });
+    });
+
+    it('Tab-into-grid initialises focus (Tab, Enter, Home, PageDown all init)', () => {
+      for (const key of ['Tab', 'Enter', 'Home', 'PageDown']) {
+        const { focus } = setup();
+        const e = keydown({ key });
+        focus.onKeyDown(e);
+        expect(focus.getFocusedCell()).toEqual({ rowIndex: 0, colId: 'a', rowPinned: null });
+        expect(e.defaultPrevented).toBe(true);
+      }
+    });
+
+    it('does not initialise focus when the model has no rows', () => {
+      const { focus } = setup({ rowData: [] });
+      const e = keydown({ key: 'ArrowDown' });
+      focus.onKeyDown(e);
+      expect(focus.getFocusedCell()).toBeNull();
+      expect(e.defaultPrevented).toBe(false);
+    });
+
+    it('printable characters do not initialise focus', () => {
+      const { focus } = setup();
+      const e = keydown({ key: 'x' });
+      focus.onKeyDown(e);
+      expect(focus.getFocusedCell()).toBeNull();
+      expect(e.defaultPrevented).toBe(false);
+    });
+  });
+
   describe('keyboard: editing entry points', () => {
     it('Enter starts editing the focused cell', () => {
       const { ctx, focus } = setup();
@@ -439,6 +482,20 @@ describe('FocusService', () => {
       expect(range.ranges).toEqual([{ startRowIndex: 0, endRowIndex: 9, colIds: ['a', 'b', 'c'] }]);
     });
 
+    it('Ctrl+A replaces existing ranges instead of appending (C37)', () => {
+      const { ctx, focus } = setup();
+      const range = makeRangeStub();
+      range.ranges = [{ startRowIndex: 1, endRowIndex: 2, colIds: ['a'] }];
+      ctx.range = range;
+
+      focus.onKeyDown(keydown({ key: 'a', ctrlKey: true }));
+      expect(range.ranges).toEqual([{ startRowIndex: 0, endRowIndex: 9, colIds: ['a', 'b', 'c'] }]);
+
+      // Repeated Ctrl+A must not stack duplicate all-cell ranges.
+      focus.onKeyDown(keydown({ key: 'a', ctrlKey: true }));
+      expect(range.ranges).toHaveLength(1);
+    });
+
     it('Space toggles row selection when rowSelection is on', () => {
       const { ctx, focus } = setup({ rowSelection: 'multiRow' });
       const setSelected = vi.fn();
@@ -507,6 +564,74 @@ describe('FocusService', () => {
     });
   });
 
+  describe('keyboard: Enter navigation on non-editable cells (C41)', () => {
+    it('Enter on a non-editable cell navigates down; Shift+Enter up (enterNavigatesVertically default)', () => {
+      const { focus } = setup(); // stub startEditing returns false → cell not editable
+      focus.setFocusedCell(2, 'b');
+
+      const e = keydown({ key: 'Enter' });
+      focus.onKeyDown(e);
+      expect(focus.getFocusedCell()).toEqual({ rowIndex: 3, colId: 'b', rowPinned: null });
+      expect(e.defaultPrevented).toBe(true);
+
+      focus.onKeyDown(keydown({ key: 'Enter', shiftKey: true }));
+      expect(focus.getFocusedCell()).toEqual({ rowIndex: 2, colId: 'b', rowPinned: null });
+    });
+
+    it('Enter does not navigate when enterNavigatesVertically is false', () => {
+      const { focus } = setup({ enterNavigatesVertically: false });
+      focus.setFocusedCell(2, 'b');
+      focus.onKeyDown(keydown({ key: 'Enter' }));
+      expect(focus.getFocusedCell()).toEqual({ rowIndex: 2, colId: 'b', rowPinned: null });
+    });
+
+    it('Enter on an editable cell starts editing and does not navigate', () => {
+      const { ctx, focus } = setup();
+      ctx.editing.startEditing = vi.fn(() => true);
+      focus.setFocusedCell(2, 'b');
+      focus.onKeyDown(keydown({ key: 'Enter' }));
+      expect(ctx.editing.startEditing).toHaveBeenCalledTimes(1);
+      expect(focus.getFocusedCell()).toEqual({ rowIndex: 2, colId: 'b', rowPinned: null });
+    });
+  });
+
+  describe('suppressCellFocus (C43)', () => {
+    it('setFocusedCell is a no-op', () => {
+      const { ctx, focus } = setup({ suppressCellFocus: true });
+      const events: CellFocusedEvent<Row>[] = [];
+      ctx.events.addEventListener('cellFocused', (e) => events.push(e));
+      focus.setFocusedCell(1, 'a');
+      expect(focus.getFocusedCell()).toBeNull();
+      expect(events).toHaveLength(0);
+    });
+
+    it('clears an existing focused cell once the option turns on', () => {
+      const { ctx, focus } = setup();
+      focus.setFocusedCell(1, 'a');
+      ctx.options.update({ suppressCellFocus: true });
+      focus.setFocusedCell(2, 'b');
+      expect(focus.getFocusedCell()).toBeNull();
+    });
+
+    it('navigation keys do nothing (no init, no movement)', () => {
+      const { focus } = setup({ suppressCellFocus: true });
+      const e = keydown({ key: 'ArrowDown' });
+      focus.onKeyDown(e);
+      expect(focus.getFocusedCell()).toBeNull();
+      expect(e.defaultPrevented).toBe(false);
+    });
+
+    it('Ctrl+A row select-all still works', () => {
+      const { ctx, focus } = setup({ suppressCellFocus: true });
+      const selectAll = vi.fn();
+      ctx.selection.selectAll = selectAll;
+      const e = keydown({ key: 'a', ctrlKey: true });
+      focus.onKeyDown(e);
+      expect(selectAll).toHaveBeenCalledTimes(1);
+      expect(e.defaultPrevented).toBe(true);
+    });
+  });
+
   describe('lifecycle', () => {
     it('ignores keys after destroy and clears focus', () => {
       const { focus } = setup();
@@ -518,5 +643,122 @@ describe('FocusService', () => {
       focus.onKeyDown(e);
       expect(e.defaultPrevented).toBe(false);
     });
+  });
+});
+
+describe('FocusService — group row keyboard expand/collapse (C3)', () => {
+  interface GRow {
+    g: string;
+    v: number;
+  }
+
+  function groupSetup(extra: Partial<GridOptions<GRow>> = {}) {
+    const { ctx, start } = createMockContext<GRow>({
+      columnDefs: [{ field: 'g', rowGroup: true }, { field: 'v' }],
+      rowData: [
+        { g: 'X', v: 1 },
+        { g: 'X', v: 2 },
+        { g: 'Y', v: 3 },
+      ],
+      ...extra,
+    });
+    const focus = new FocusService<GRow>(ctx);
+    ctx.focus = focus;
+    start();
+    const firstColId = ctx.columnModel.getDisplayedColumns()[0]!.colId;
+    return { ctx, focus, firstColId };
+  }
+
+  it('ArrowRight on a collapsed group expands it and consumes the key', () => {
+    const { ctx, focus, firstColId } = groupSetup(); // groupDefaultExpanded 0 → collapsed
+    focus.setFocusedCell(0, firstColId);
+    const group = ctx.rowModel.getRow(0)!;
+    expect(group.group).toBe(true);
+    expect(group.expanded).toBe(false);
+
+    const e = keydown({ key: 'ArrowRight' });
+    focus.onKeyDown(e);
+
+    expect(group.expanded).toBe(true);
+    expect(ctx.rowModel.getRowCount()).toBe(4); // X, leaf, leaf, Y
+    expect(e.defaultPrevented).toBe(true);
+    expect(focus.getFocusedCell()!.rowIndex).toBe(0); // focus did not move
+  });
+
+  it('ArrowRight on an expanded group falls through to column navigation', () => {
+    const { ctx, focus, firstColId } = groupSetup({ groupDefaultExpanded: -1 });
+    focus.setFocusedCell(0, firstColId);
+    focus.onKeyDown(keydown({ key: 'ArrowRight' }));
+    expect(ctx.rowModel.getRow(0)!.expanded).toBe(true); // unchanged
+    expect(focus.getFocusedCell()!.colId).not.toBe(firstColId);
+  });
+
+  it('ArrowLeft on an expanded group collapses it', () => {
+    const { ctx, focus, firstColId } = groupSetup({ groupDefaultExpanded: -1 });
+    focus.setFocusedCell(0, firstColId);
+    const group = ctx.rowModel.getRow(0)!;
+
+    const e = keydown({ key: 'ArrowLeft' });
+    focus.onKeyDown(e);
+
+    expect(group.expanded).toBe(false);
+    expect(e.defaultPrevented).toBe(true);
+  });
+
+  it('ArrowLeft on a leaf row moves focus to its parent group row', () => {
+    const { ctx, focus, firstColId } = groupSetup({ groupDefaultExpanded: -1 });
+    // Row 1 is the first leaf under group X (row 0).
+    expect(ctx.rowModel.getRow(1)!.group).toBe(false);
+    focus.setFocusedCell(1, firstColId);
+
+    const e = keydown({ key: 'ArrowLeft' });
+    focus.onKeyDown(e);
+
+    expect(focus.getFocusedCell()).toEqual({ rowIndex: 0, colId: firstColId, rowPinned: null });
+    expect(e.defaultPrevented).toBe(true);
+  });
+
+  it('ArrowLeft on a top-level collapsed group falls back to column navigation', () => {
+    const { ctx, focus } = groupSetup();
+    const cols = ctx.columnModel.getDisplayedColumns();
+    const lastColId = cols[cols.length - 1]!.colId;
+    focus.setFocusedCell(0, lastColId);
+
+    focus.onKeyDown(keydown({ key: 'ArrowLeft' }));
+
+    // No displayed parent to go to: normal one-column-left movement.
+    expect(focus.getFocusedCell()).toEqual({
+      rowIndex: 0,
+      colId: cols[cols.length - 2]!.colId,
+      rowPinned: null,
+    });
+    expect(ctx.rowModel.getRow(0)!.expanded).toBe(false);
+  });
+
+  it('Enter on an expandable group row (non-editable column) toggles expansion', () => {
+    const { ctx, focus, firstColId } = groupSetup();
+    focus.setFocusedCell(0, firstColId);
+    const group = ctx.rowModel.getRow(0)!;
+
+    const e = keydown({ key: 'Enter' });
+    focus.onKeyDown(e);
+    expect(group.expanded).toBe(true);
+    expect(e.defaultPrevented).toBe(true);
+
+    focus.onKeyDown(keydown({ key: 'Enter' }));
+    expect(group.expanded).toBe(false);
+    // Focus stayed on the group row (no vertical Enter navigation for groups).
+    expect(focus.getFocusedCell()!.rowIndex).toBe(0);
+  });
+
+  it('Enter on a group row with an editable focused column starts editing instead', () => {
+    const { ctx, focus, firstColId } = groupSetup();
+    ctx.editing.startEditing = vi.fn(() => true);
+    focus.setFocusedCell(0, firstColId);
+
+    focus.onKeyDown(keydown({ key: 'Enter' }));
+
+    expect(ctx.editing.startEditing).toHaveBeenCalledTimes(1);
+    expect(ctx.rowModel.getRow(0)!.expanded).toBe(false); // no toggle
   });
 });

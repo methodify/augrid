@@ -17,9 +17,8 @@ export class SortController<TData = unknown> implements ISortController<TData> {
 
   /** All columns that can carry sort state, in canonical order. */
   private sortableColumns(): Column<TData>[] {
-    const auto = this.ctx.columnModel.getAutoGroupColumn();
     return [
-      ...(auto ? [auto] : []),
+      ...this.ctx.columnModel.getAutoGroupColumns(),
       ...this.ctx.columnModel.getPrimaryColumns(),
       ...(this.ctx.columnModel.getSecondaryColumns() ?? []),
     ];

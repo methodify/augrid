@@ -90,10 +90,18 @@ describe('NumberCellEditor', () => {
 describe('DateCellEditor', () => {
   it('initialises from a Date and returns yyyy-mm-dd', () => {
     const ed = new DateCellEditor();
-    ed.init(makeParams({ value: new Date(2024, 0, 15) }));
+    ed.init(makeParams({ value: new Date('2024-01-15T12:00:00Z') }));
     const gui = ed.getGui() as HTMLInputElement;
     expect(gui.type).toBe('date');
     expect(ed.getValue()).toBe('2024-01-15');
+  });
+
+  it('formats Date values with UTC accessors — no day-shift in negative-offset timezones (C13)', () => {
+    // A yyyy-mm-dd commit is UTC-parsed downstream; formatting the incoming
+    // Date with local accessors shifted UTC midnight a day back west of UTC.
+    const ed = new DateCellEditor();
+    ed.init(makeParams({ value: new Date('2024-03-05T00:00:00Z') }));
+    expect(ed.getValue()).toBe('2024-03-05'); // regardless of local TZ
   });
 
   it('initialises from an ISO string', () => {
@@ -106,6 +114,20 @@ describe('DateCellEditor', () => {
     const ed = new DateCellEditor();
     ed.init(makeParams({ value: null }));
     expect(ed.getValue()).toBeNull();
+  });
+
+  it('isCancelAfterEnd: unchanged value is a no-op edit; changed value commits (C13)', () => {
+    const ed = new DateCellEditor();
+    ed.init(makeParams({ value: new Date('2024-03-05T00:00:00Z') }));
+    expect(ed.isCancelAfterEnd()).toBe(true); // untouched → skip commit
+
+    (ed.getGui() as HTMLInputElement).value = '2024-03-06';
+    expect(ed.isCancelAfterEnd()).toBe(false);
+
+    // Empty-to-empty is also a no-op.
+    const ed2 = new DateCellEditor();
+    ed2.init(makeParams({ value: null }));
+    expect(ed2.isCancelAfterEnd()).toBe(true);
   });
 });
 

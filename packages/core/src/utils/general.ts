@@ -7,12 +7,25 @@ export function humanize(field: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/**
+ * Path segments that would walk (or write through) the prototype chain.
+ * Both getPath and setPath treat a path containing any of these as invalid
+ * (no-op / undefined) to prevent prototype pollution via colDef.field.
+ */
+function isUnsafePathSegment(segment: string): boolean {
+  return segment === '__proto__' || segment === 'constructor' || segment === 'prototype';
+}
+
 /** Read a possibly-dotted path from an object. Fast path for non-dotted. */
 export function getPath(obj: unknown, path: string): unknown {
   if (obj == null) return undefined;
-  if (!path.includes('.')) return (obj as Record<string, unknown>)[path];
+  if (!path.includes('.')) {
+    if (isUnsafePathSegment(path)) return undefined;
+    return (obj as Record<string, unknown>)[path];
+  }
   let cur: unknown = obj;
   for (const part of path.split('.')) {
+    if (isUnsafePathSegment(part)) return undefined;
     if (cur == null) return undefined;
     cur = (cur as Record<string, unknown>)[part];
   }
@@ -22,10 +35,12 @@ export function getPath(obj: unknown, path: string): unknown {
 export function setPath(obj: unknown, path: string, value: unknown): void {
   if (obj == null) return;
   if (!path.includes('.')) {
+    if (isUnsafePathSegment(path)) return;
     (obj as Record<string, unknown>)[path] = value;
     return;
   }
   const parts = path.split('.');
+  for (const part of parts) if (isUnsafePathSegment(part)) return;
   let cur = obj as Record<string, unknown>;
   for (let i = 0; i < parts.length - 1; i++) {
     let next = cur[parts[i]];

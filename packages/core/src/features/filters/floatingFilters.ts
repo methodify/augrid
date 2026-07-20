@@ -3,6 +3,10 @@
  * header. Thin DOM layer — all filter state flows through the FilterManager
  * model (single source of truth), so external model changes are reflected
  * back into the inputs.
+ *
+ * Every mount path returns a cleanup function that unsubscribes its event
+ * listeners, closes any open popup, and removes document listeners. The
+ * header renderer must invoke it before discarding the container.
  */
 import type { GridContext } from '../../context';
 import type { Column } from '../../columns/column';
@@ -19,33 +23,38 @@ import { debounce } from '../../utils/general';
 
 const MAX_SET_ROWS = 200;
 
+const NOOP_CLEANUP = (): void => {};
+
 export function mountFloatingFilter<TData>(
   ctx: GridContext<TData>,
   container: HTMLElement,
   column: Column<TData>,
-): void {
+): () => void {
   const manager = ctx.filters as FilterManager<TData>;
   const kind = manager.resolveFilterKind(column);
-  if (kind === null) return;
+  if (kind === null) return NOOP_CLEANUP;
 
   switch (kind) {
     case 'text':
-      mountSimpleInput(ctx, container, column, 'text');
-      break;
+      return mountSimpleInput(ctx, container, column, 'text');
     case 'number':
-      mountSimpleInput(ctx, container, column, 'number');
-      break;
+      return mountSimpleInput(ctx, container, column, 'number');
     case 'date':
-      mountDateInput(ctx, container, column);
-      break;
+      return mountDateInput(ctx, container, column);
     case 'set':
-      mountSetTrigger(ctx, container, column);
-      break;
+      return mountSetTrigger(ctx, container, column);
     case 'custom': {
       const inst = manager.getOrCreateCustomInstance(column);
       const gui = inst?.getGui?.();
-      if (gui) container.appendChild(gui);
-      break;
+      if (gui) {
+        container.appendChild(gui);
+        return () => {
+          // The instance is long-lived (owned by the FilterManager); just
+          // detach its gui from the throwaway container.
+          if (gui.parentNode === container) container.removeChild(gui);
+        };
+      }
+      return NOOP_CLEANUP;
     }
   }
 }
@@ -69,7 +78,7 @@ function mountSimpleInput<TData>(
   container: HTMLElement,
   column: Column<TData>,
   kind: 'text' | 'number',
-): void {
+): () => void {
   const colId = column.colId;
   const input = el('input', 'au-floating-input', {
     type: 'text',
@@ -101,14 +110,15 @@ function mountSimpleInput<TData>(
   input.addEventListener('input', () => apply());
 
   const onFilterChanged = (): void => {
-    if (!input.isConnected) {
-      ctx.events.removeEventListener('filterChanged', onFilterChanged);
-      return;
-    }
     if (document.activeElement === input) return;
     input.value = firstConditionText(ctx.filters.getColumnModel_(colId));
   };
   ctx.events.addEventListener('filterChanged', onFilterChanged);
+
+  return () => {
+    apply.cancel();
+    ctx.events.removeEventListener('filterChanged', onFilterChanged);
+  };
 }
 
 /* ------------------------------------------------------------------ date */
@@ -117,7 +127,7 @@ function mountDateInput<TData>(
   ctx: GridContext<TData>,
   container: HTMLElement,
   column: Column<TData>,
-): void {
+): () => void {
   const colId = column.colId;
   const input = el('input', 'au-floating-input', { type: 'date' }) as HTMLInputElement;
   input.value = firstConditionText(ctx.filters.getColumnModel_(colId));
@@ -138,14 +148,14 @@ function mountDateInput<TData>(
   });
 
   const onFilterChanged = (): void => {
-    if (!input.isConnected) {
-      ctx.events.removeEventListener('filterChanged', onFilterChanged);
-      return;
-    }
     if (document.activeElement === input) return;
     input.value = firstConditionText(ctx.filters.getColumnModel_(colId));
   };
   ctx.events.addEventListener('filterChanged', onFilterChanged);
+
+  return () => {
+    ctx.events.removeEventListener('filterChanged', onFilterChanged);
+  };
 }
 
 /* ------------------------------------------------------------------- set */
@@ -159,7 +169,7 @@ function mountSetTrigger<TData>(
   ctx: GridContext<TData>,
   container: HTMLElement,
   column: Column<TData>,
-): void {
+): () => void {
   const colId = column.colId;
   const trigger = el('input', 'au-floating-input au-set-filter-trigger', {
     type: 'text',
@@ -169,26 +179,39 @@ function mountSetTrigger<TData>(
   trigger.value = setTriggerLabel(ctx.filters.getColumnModel_(colId));
   container.appendChild(trigger);
 
+  /** Close function of this trigger's currently open popup, if any. */
+  let closeOpenPopup: (() => void) | null = null;
+
   trigger.addEventListener('click', () => {
     if (ctx.destroyed) return;
-    openSetPopup(ctx, trigger, column);
+    if (closeOpenPopup) {
+      // Toggle: clicking the trigger while its popup is open closes it
+      // instead of stacking a second popup + document listener.
+      closeOpenPopup();
+      return;
+    }
+    closeOpenPopup = openSetPopup(ctx, trigger, column, () => {
+      closeOpenPopup = null;
+    });
   });
 
   const onFilterChanged = (): void => {
-    if (!trigger.isConnected) {
-      ctx.events.removeEventListener('filterChanged', onFilterChanged);
-      return;
-    }
     trigger.value = setTriggerLabel(ctx.filters.getColumnModel_(colId));
   };
   ctx.events.addEventListener('filterChanged', onFilterChanged);
+
+  return () => {
+    ctx.events.removeEventListener('filterChanged', onFilterChanged);
+    closeOpenPopup?.();
+  };
 }
 
 function openSetPopup<TData>(
   ctx: GridContext<TData>,
   trigger: HTMLElement,
   column: Column<TData>,
-): void {
+  onClosed: () => void,
+): () => void {
   const colId = column.colId;
   const root = ctx.renderer.eRoot;
   const values = ctx.filters.getSetValues(colId);
@@ -292,10 +315,14 @@ function openSetPopup<TData>(
 
   search.addEventListener('input', () => renderList());
 
+  let closed = false;
   const close = (): void => {
+    if (closed) return; // ensure document listener removal happens exactly once
+    closed = true;
     document.removeEventListener('mousedown', onDocMouseDown, true);
     ctx.events.removeEventListener('gridPreDestroyed', close);
     popup.remove();
+    onClosed();
   };
 
   const onDocMouseDown = (e: MouseEvent): void => {
@@ -309,4 +336,6 @@ function openSetPopup<TData>(
   renderList();
   syncSelectAll();
   search.focus();
+
+  return close;
 }

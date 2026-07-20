@@ -17,8 +17,10 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
   private nodesById = new Map<string, RowNode<TData>>();
   private root: RowNode<TData> | null = null;
   private groupsByPath = new Map<string, RowNode<TData>>();
-  /** Expansion overrides: 'path' = expanded, '!path' = collapsed. */
-  private expandedOverrides = new Set<string>();
+  /** Expansion overrides: group path → expanded. (C34: unambiguous vs '!'-prefix Set.) */
+  private expansionOverrides = new Map<string, boolean>();
+  /** Effective grouping signature; overrides are cleared when it changes (C36). */
+  private lastGroupSignature: string | null = null;
 
   /** All displayed rows after flatten (pre-pagination). */
   private displayedAll: RowNode<TData>[] = [];
@@ -115,6 +117,14 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
   }
 
   applyTransaction(tx: RowDataTransaction<TData>): RowDataTransactionResult<TData> | null {
+    const result = this.applyDataChanges(tx);
+    this.finalizeDataChanges();
+    this.dispatchRowDataUpdated(result);
+    return result;
+  }
+
+  /** Patch leaf arrays for one transaction. No re-stamp/refresh/events (C7). */
+  private applyDataChanges(tx: RowDataTransaction<TData>): RowDataTransactionResult<TData> {
     const getRowId = this.ctx.options.get('getRowId');
     const result: RowDataTransactionResult<TData> = { add: [], update: [], remove: [] };
 
@@ -164,12 +174,14 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
       result.add = added;
     }
 
-    // Re-stamp source order.
+    return result;
+  }
+
+  /** Re-stamp source order and re-run the pipeline after data changes (C7). */
+  private finalizeDataChanges(): void {
     for (let i = 0; i < this.allLeafNodes.length; i++) this.allLeafNodes[i].__sourceIndex = i;
     this.dataLoaded = true;
     this.refreshModel('group');
-    this.dispatchRowDataUpdated(result);
-    return result;
   }
 
   applyTransactionAsync(
@@ -190,16 +202,22 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
     if (this.asyncTxQueue.length === 0) return;
     const queue = this.asyncTxQueue;
     this.asyncTxQueue = [];
-    // Merge into one recompute: apply data changes without refresh, then refresh once.
-    const merged: RowDataTransaction<TData> = { add: [], update: [], remove: [] };
+    // C7: apply each queued transaction's data changes SEQUENTIALLY (so each
+    // addIndex applies to its own adds and remove-after-add cannot resurrect
+    // rows), then refresh once and dispatch a single rowDataUpdated.
+    const results: RowDataTransactionResult<TData>[] = [];
+    const merged: RowDataTransactionResult<TData> = { add: [], update: [], remove: [] };
     for (const { tx } of queue) {
-      if (tx.add) merged.add!.push(...tx.add);
-      if (tx.update) merged.update!.push(...tx.update);
-      if (tx.remove) merged.remove!.push(...tx.remove);
-      if (tx.addIndex != null) merged.addIndex = tx.addIndex;
+      const r = this.applyDataChanges(tx);
+      results.push(r);
+      merged.add.push(...r.add);
+      merged.update.push(...r.update);
+      merged.remove.push(...r.remove);
     }
-    const result = this.applyTransaction(merged);
-    for (const { cb } of queue) if (cb && result) cb(result);
+    this.finalizeDataChanges();
+    this.dispatchRowDataUpdated(merged);
+    // Each callback receives the result of ITS transaction.
+    for (let i = 0; i < queue.length; i++) queue[i].cb?.(results[i]);
   }
 
   private findByReference(item: TData): RowNode<TData> | undefined {
@@ -234,8 +252,20 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
     const from = STEP_ORDER.indexOf(step === 'pivot' ? 'group' : step);
 
     if (from <= 0 || !this.root) {
+      // C36: expansion overrides are keyed by group paths; when the effective
+      // grouping changes (rowGroup columns / treeData), old paths may collide
+      // with unrelated groups sharing the same key strings — drop them.
+      const treeData = this.ctx.options.get('treeData') === true;
+      const groupSignature = treeData
+        ? 'tree'
+        : 'cols:' + this.ctx.columnModel.getRowGroupColumns().map((c) => c.colId).join(',');
+      if (this.lastGroupSignature !== null && this.lastGroupSignature !== groupSignature) {
+        this.expansionOverrides.clear();
+      }
+      this.lastGroupSignature = groupSignature;
+
       const defaultExpanded = this.ctx.options.get('groupDefaultExpanded') ?? 0;
-      const res = runGroupStage(this.ctx, this.allLeafNodes, this.expandedOverrides, defaultExpanded);
+      const res = runGroupStage(this.ctx, this.allLeafNodes, this.expansionOverrides, defaultExpanded);
       this.root = res.root;
       this.groupsByPath = res.groupsByPath;
     }
@@ -265,7 +295,7 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
 
   private getSortSpecs(): SortSpec<TData>[] {
     const cols = [
-      ...(this.ctx.columnModel.getAutoGroupColumn() ? [this.ctx.columnModel.getAutoGroupColumn()!] : []),
+      ...this.ctx.columnModel.getAutoGroupColumns(),
       ...this.ctx.columnModel.getPrimaryColumns(),
       ...(this.ctx.columnModel.getSecondaryColumns() ?? []),
     ];
@@ -327,13 +357,11 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
               out.push(ch);
               continue;
             }
-            if (groupTotal === 'top' && ch.expanded) {
-              out.push(this.getFooterNode(ch));
-              out.push(ch);
-            } else {
-              out.push(ch);
-            }
+            // C9: the group header row always comes first; a 'top' footer sits
+            // between the group row and its children.
+            out.push(ch);
             if (ch.expanded) {
+              if (groupTotal === 'top') out.push(this.getFooterNode(ch));
               if (!pivotActive || this.hasGroupChildren(ch)) visit(ch);
               if (groupTotal === 'bottom') out.push(this.getFooterNode(ch));
             }
@@ -360,17 +388,25 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
   }
 
   private getFooterNode(group: RowNode<TData>): RowNode<TData> {
-    if (group.sibling) return group.sibling;
-    const footer = new RowNode<TData>(this.ctx, `${group.id}-footer`);
-    footer.footer = true;
-    footer.group = true;
-    footer.key = group.key;
-    footer.field = group.field;
-    footer.level = group.level;
-    footer.parent = group.parent;
-    footer.aggData = group.aggData;
-    footer.sibling = group;
-    group.sibling = footer;
+    let footer = group.sibling;
+    if (!footer) {
+      footer = new RowNode<TData>(this.ctx, `${group.id}-footer`);
+      footer.footer = true;
+      footer.group = true;
+      footer.key = group.key;
+      footer.field = group.field;
+      footer.level = group.level;
+      footer.parent = group.parent;
+      footer.sibling = group;
+      group.sibling = footer;
+    }
+    // C6: runAggStage assigns a NEW aggData object each run; re-sync the cached
+    // footer every flatten so it never shows stale aggregates, and bump its
+    // version so cells re-render.
+    if (footer.aggData !== group.aggData) {
+      footer.aggData = group.aggData;
+      footer.__version++;
+    }
     return footer;
   }
 
@@ -530,20 +566,17 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
 
   onGroupExpandedChanged(node: RowNode<TData> | null): void {
     if (node) {
-      const path = node.getGroupPath();
-      this.expandedOverrides.delete(path);
-      this.expandedOverrides.delete('!' + path);
-      this.expandedOverrides.add(node.expanded ? path : '!' + path);
+      this.expansionOverrides.set(node.getGroupPath(), node.expanded);
     }
     this.flatten();
     this.ctx.scheduleRender();
   }
 
   expandAll(expand: boolean): void {
-    this.expandedOverrides.clear();
+    this.expansionOverrides.clear();
     for (const [path, g] of this.groupsByPath) {
       g.expanded = expand;
-      this.expandedOverrides.add(expand ? path : '!' + path);
+      this.expansionOverrides.set(path, expand);
     }
     this.flatten();
     this.ctx.events.dispatch({
@@ -561,11 +594,11 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
   }
 
   setExpandedGroupPaths(paths: string[]): void {
-    this.expandedOverrides.clear();
+    this.expansionOverrides.clear();
     const set = new Set(paths);
     for (const [path, g] of this.groupsByPath) {
       g.expanded = set.has(path);
-      this.expandedOverrides.add(g.expanded ? path : '!' + path);
+      this.expansionOverrides.set(path, g.expanded);
     }
     this.flatten();
     this.ctx.scheduleRender();

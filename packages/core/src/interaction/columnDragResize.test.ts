@@ -55,16 +55,24 @@ describe('ColumnResizeService', () => {
     const { ctx, grip } = setupResize();
     const spy = vi.spyOn(ctx.columnModel, 'setColumnWidths');
     const headerDirty = vi.spyOn(ctx.renderer, 'markHeaderDirty');
+    const schedule = vi.spyOn(ctx, 'scheduleRender');
 
     grip.dispatchEvent(mouse('mousedown', { clientX: 200 }));
     document.dispatchEvent(mouse('mousemove', { clientX: 250 }));
     expect(spy).toHaveBeenLastCalledWith([{ colId: 'a', width: 150 }], false, 'ui');
     expect(ctx.columnModel.getColumn('a')!.actualWidth).toBe(150);
-    expect(headerDirty).toHaveBeenCalled();
+    // In-flight drag must NOT rebuild the header — geometry-only updates go
+    // through scheduleRender; markHeaderDirty is reserved for gesture end.
+    expect(headerDirty).not.toHaveBeenCalled();
+    expect(schedule).toHaveBeenCalled();
+
+    document.dispatchEvent(mouse('mousemove', { clientX: 255 }));
+    expect(headerDirty).not.toHaveBeenCalled();
 
     document.dispatchEvent(mouse('mouseup', { clientX: 260 }));
     expect(spy).toHaveBeenLastCalledWith([{ colId: 'a', width: 160 }], true, 'ui');
     expect(ctx.columnModel.getColumn('a')!.actualWidth).toBe(160);
+    expect(headerDirty).toHaveBeenCalledTimes(1);
 
     // listeners removed: further moves do nothing
     const calls = spy.mock.calls.length;
@@ -75,14 +83,17 @@ describe('ColumnResizeService', () => {
   it('Escape during resize restores the original width', () => {
     const { ctx, grip } = setupResize();
     const spy = vi.spyOn(ctx.columnModel, 'setColumnWidths');
+    const headerDirty = vi.spyOn(ctx.renderer, 'markHeaderDirty');
 
     grip.dispatchEvent(mouse('mousedown', { clientX: 200 }));
     document.dispatchEvent(mouse('mousemove', { clientX: 300 }));
     expect(ctx.columnModel.getColumn('a')!.actualWidth).toBe(200);
+    expect(headerDirty).not.toHaveBeenCalled();
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(spy).toHaveBeenLastCalledWith([{ colId: 'a', width: 100 }], true, 'ui');
     expect(ctx.columnModel.getColumn('a')!.actualWidth).toBe(100);
+    expect(headerDirty).toHaveBeenCalledTimes(1);
 
     // gesture over: further moves do nothing
     const calls = spy.mock.calls.length;
@@ -95,10 +106,12 @@ describe('ColumnResizeService', () => {
     const { ctx, grip } = setupResize();
     ctx.renderer.measureColumnWidth = () => 321;
     const spy = vi.spyOn(ctx.columnModel, 'setColumnWidths');
+    const headerDirty = vi.spyOn(ctx.renderer, 'markHeaderDirty');
 
     grip.dispatchEvent(mouse('dblclick'));
     expect(spy).toHaveBeenCalledWith([{ colId: 'a', width: 321 }], true, 'autosize');
     expect(ctx.columnModel.getColumn('a')!.actualWidth).toBe(321);
+    expect(headerDirty).toHaveBeenCalledTimes(1);
   });
 });
 

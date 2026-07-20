@@ -26,6 +26,12 @@ const columnDefs: ColDef<Row>[] = [
   { field: 'country' },
 ];
 
+/** Count registered 'filterChanged' listeners on the event service (test-only reach-in). */
+function filterChangedListenerCount(ctx: { events: unknown }): number {
+  const map = (ctx.events as { listeners: Map<string, Set<unknown>> }).listeners;
+  return map.get('filterChanged')?.size ?? 0;
+}
+
 function setup(extraOptions: Record<string, unknown> = {}, defs: ColDef<Row>[] = columnDefs) {
   const { ctx, start } = createMockContext<Row>({
     columnDefs: defs,
@@ -211,6 +217,102 @@ describe('FilterManager', () => {
     instances[0].params.onModelChange(null);
     expect(ctx.rowModel.getRowCount()).toBe(5);
     expect(filters.isColumnActive('age')).toBe(false);
+  });
+
+  it('mountFloatingFilter returns a cleanup that unsubscribes its filterChanged listener', () => {
+    const defs: ColDef<Row>[] = [
+      { field: 'name', filter: 'text' },
+      { field: 'age' },
+      { field: 'country' },
+    ];
+    const { ctx, filters } = setup({}, defs);
+    const baseline = filterChangedListenerCount(ctx);
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const cleanup = filters.mountFloatingFilter(container, ctx.columnModel.getColumn('name')!);
+    expect(typeof cleanup).toBe('function');
+    expect(filterChangedListenerCount(ctx)).toBe(baseline + 1);
+
+    // While mounted, external model changes are reflected into the input.
+    const input = container.querySelector('input') as HTMLInputElement;
+    filters.setColumnModel_('name', {
+      filterType: 'text',
+      conditions: [{ type: 'contains', filter: 'ali' }],
+    });
+    expect(input.value).toBe('ali');
+
+    // Cleanup removes the listener even though the input is still connected
+    // (no reliance on lazy isConnected-based removal).
+    cleanup();
+    expect(filterChangedListenerCount(ctx)).toBe(baseline);
+    filters.setColumnModel_('name', {
+      filterType: 'text',
+      conditions: [{ type: 'contains', filter: 'bob' }],
+    });
+    expect(input.value).toBe('ali'); // no longer synced
+    container.remove();
+  });
+
+  it('repeated mount/cleanup cycles (header refreshes) do not accumulate listeners', () => {
+    const defs: ColDef<Row>[] = [
+      { field: 'name', filter: 'text' },
+      { field: 'age', filter: 'number' },
+      { field: 'country', filter: 'set' },
+    ];
+    const { ctx, filters } = setup({}, defs);
+    const baseline = filterChangedListenerCount(ctx);
+    for (let i = 0; i < 5; i++) {
+      const cleanups: (() => void)[] = [];
+      for (const colId of ['name', 'age', 'country']) {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        cleanups.push(filters.mountFloatingFilter(container, ctx.columnModel.getColumn(colId)!));
+      }
+      expect(filterChangedListenerCount(ctx)).toBe(baseline + 3);
+      for (const c of cleanups) c();
+      document.body.textContent = '';
+    }
+    expect(filterChangedListenerCount(ctx)).toBe(baseline);
+  });
+
+  it('set-filter trigger toggles its popup instead of stacking a second one', () => {
+    const defs: ColDef<Row>[] = [
+      { field: 'name' },
+      { field: 'age' },
+      { field: 'country', filter: 'set' },
+    ];
+    const { ctx, filters } = setup({}, defs);
+    const root = ctx.renderer.eRoot;
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const cleanup = filters.mountFloatingFilter(container, ctx.columnModel.getColumn('country')!);
+    const trigger = container.querySelector('input') as HTMLInputElement;
+
+    // Open.
+    trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(root.querySelectorAll('.au-set-filter-popup')).toHaveLength(1);
+
+    // Click while open: toggle closed, never a second popup.
+    trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(root.querySelectorAll('.au-set-filter-popup')).toHaveLength(0);
+
+    // Reopens after a toggle-close (tracking reset).
+    trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(root.querySelectorAll('.au-set-filter-popup')).toHaveLength(1);
+
+    // Outside mousedown closes it; further outside mousedowns are inert.
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(root.querySelectorAll('.au-set-filter-popup')).toHaveLength(0);
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(root.querySelectorAll('.au-set-filter-popup')).toHaveLength(0);
+
+    // Reopens after an outside-close too, and cleanup closes an open popup.
+    trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(root.querySelectorAll('.au-set-filter-popup')).toHaveLength(1);
+    cleanup();
+    expect(root.querySelectorAll('.au-set-filter-popup')).toHaveLength(0);
+    container.remove();
   });
 
   it('group rows are kept when any descendant passes the filter', () => {

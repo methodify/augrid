@@ -239,9 +239,6 @@ export interface ColDef<TData = unknown> {
   pivotIndex?: number | null;
   /** Aggregate values with this function (group/pivot modes). */
   aggFunc?: ProvidedAggFunc | AggFunc<TData> | string | null;
-  /** Hide this column while its rowGroup is active (default true when grouped). */
-  showRowGroup?: boolean;
-
   /** Inferred if omitted: 'text' | 'number' | 'date' | 'boolean' | 'object'. */
   cellDataType?: 'text' | 'number' | 'date' | 'boolean' | 'object' | false;
 }
@@ -251,8 +248,6 @@ export interface ColGroupDef<TData = unknown> {
   headerName?: string;
   headerClass?: string | string[];
   children: (ColDef<TData> | ColGroupDef<TData>)[];
-  /** Keep children adjacent when columns are moved. */
-  marryChildren?: boolean;
 }
 
 export type ColDefOrGroup<TData = unknown> = ColDef<TData> | ColGroupDef<TData>;

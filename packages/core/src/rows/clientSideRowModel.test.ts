@@ -2,14 +2,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMockContext } from '../test/mockContext';
 import type { ClientSideRowModel } from './clientSideRowModel';
 import type { RowNode } from './rowNode';
+import { joinGroupPath } from './stages';
 
 interface Row {
   id: string;
   name: string;
   country?: string;
+  region?: string;
   sales?: number;
   h?: number;
 }
+
+/** Shorthand: group path from key segments (C8 scheme: SEP-prefixed segments). */
+const P = (...segs: string[]): string => joinGroupPath(segs);
 
 function rows(n: number): Row[] {
   return Array.from({ length: n }, (_, i) => ({ id: `r${i}`, name: `name${i}`, sales: i }));
@@ -118,9 +123,11 @@ describe('applyTransaction', () => {
 });
 
 describe('async transactions', () => {
-  it('queues and merges into a single recompute on the timer', () => {
+  it('queues and flushes into a single recompute on the timer', () => {
     vi.useFakeTimers();
-    const { model } = setup({ rowData: rows(2), getRowId: (p) => p.data.id });
+    const { ctx, model } = setup({ rowData: rows(2), getRowId: (p) => p.data.id });
+    const events: unknown[] = [];
+    ctx.events.addEventListener('rowDataUpdated', (e) => events.push(e));
     const cb1 = vi.fn();
     const cb2 = vi.fn();
     model.applyTransactionAsync({ add: [{ id: 'a1', name: 'a1' }] }, cb1);
@@ -130,8 +137,37 @@ describe('async transactions', () => {
     expect(model.getRowCount()).toBe(4);
     expect(cb1).toHaveBeenCalledTimes(1);
     expect(cb2).toHaveBeenCalledTimes(1);
-    // both callbacks receive the merged result
-    expect(cb1.mock.calls[0][0].add).toHaveLength(2);
+    // C7: each callback receives ITS transaction's result (was: merged result)
+    expect(cb1.mock.calls[0][0].add.map((n: RowNode<Row>) => n.id)).toEqual(['a1']);
+    expect(cb2.mock.calls[0][0].add.map((n: RowNode<Row>) => n.id)).toEqual(['a2']);
+    // one refresh → one rowDataUpdated for the whole flush
+    expect(events).toHaveLength(1);
+    const evt = events[0] as { add?: RowNode<Row>[] };
+    expect(evt.add?.map((n) => n.id)).toEqual(['a1', 'a2']);
+  });
+
+  // C7 regression: the old flush merged all queued transactions into ONE
+  // transaction, so remove-before-add ordering was lost (an async add of X
+  // followed by an async remove of X left X present).
+  it('C7: async add then async remove of the same row leaves it absent', () => {
+    vi.useFakeTimers();
+    const { model } = setup({ rowData: rows(2), getRowId: (p) => p.data.id });
+    model.applyTransactionAsync({ add: [{ id: 'x', name: 'x' }] });
+    model.applyTransactionAsync({ remove: [{ id: 'x', name: 'x' }] });
+    vi.advanceTimersByTime(20);
+    expect(model.getRowCount()).toBe(2);
+    expect(model.getRowNode('x')).toBeUndefined();
+  });
+
+  // C7 regression: the old flush applied the LAST addIndex to ALL merged adds.
+  it('C7: each queued transaction applies its own addIndex', () => {
+    vi.useFakeTimers();
+    const { model } = setup({ rowData: rows(2), getRowId: (p) => p.data.id });
+    model.applyTransactionAsync({ add: [{ id: 'front', name: 'front' }], addIndex: 0 });
+    model.applyTransactionAsync({ add: [{ id: 'mid', name: 'mid' }], addIndex: 2 });
+    vi.advanceTimersByTime(20);
+    // sequential: [front, r0, r1] then insert 'mid' at 2 → [front, r0, mid, r1]
+    expect(model.getAllLeafNodes().map((n) => n.id)).toEqual(['front', 'r0', 'mid', 'r1']);
   });
 
   it('flushAsyncTransactions applies pending work immediately', () => {
@@ -229,11 +265,104 @@ describe('grouping, expansion persistence, footers', () => {
     });
     model.expandAll(true);
     expect(model.getRowCount()).toBe(5);
-    expect(model.getExpandedGroupPaths().sort()).toEqual(['UK', 'USA']);
+    expect(model.getExpandedGroupPaths().sort()).toEqual([P('UK'), P('USA')]);
     model.expandAll(false);
     expect(model.getRowCount()).toBe(2);
-    model.setExpandedGroupPaths(['UK']);
+    model.setExpandedGroupPaths([P('UK')]);
     expect(model.getRowCount()).toBe(3);
+  });
+
+  // C9 regression: groupTotalRow 'top' used to emit the footer ABOVE the group
+  // header row. Correct order: group, footer, children.
+  it('C9: groupTotalRow top renders [group, footer, ...children] per group', () => {
+    const { model } = setup({
+      columnDefs: [
+        { field: 'country', rowGroup: true },
+        { field: 'sales', aggFunc: 'sum' },
+      ],
+      rowData: GROUP_DATA,
+      getRowId: (p) => p.data.id,
+      groupDefaultExpanded: -1,
+      groupTotalRow: 'top',
+      grandTotalRow: 'top',
+    });
+    const all: RowNode<Row>[] = [];
+    for (let i = 0; i < model.getRowCount(); i++) all.push(model.getRow(i)!);
+    // grand-footer, USA, USA-footer, a, b, UK, UK-footer, c
+    expect(all).toHaveLength(8);
+    // grand total 'top' renders before all rows
+    expect(all[0].footer).toBe(true);
+    expect(all[0].level).toBe(-1);
+    expect(all[0].aggData!.sales).toBe(350);
+    // group header first, then its footer, then children
+    expect(all[1].group).toBe(true);
+    expect(all[1].footer).toBe(false);
+    expect(all[1].key).toBe('USA');
+    expect(all[2].footer).toBe(true);
+    expect(all[2].key).toBe('USA');
+    expect(all[2].aggData!.sales).toBe(300);
+    expect(all[3].data!.name).toBe('a');
+    expect(all[4].data!.name).toBe('b');
+    expect(all[5].group).toBe(true);
+    expect(all[5].footer).toBe(false);
+    expect(all[5].key).toBe('UK');
+    expect(all[6].footer).toBe(true);
+    expect(all[6].key).toBe('UK');
+    expect(all[7].data!.name).toBe('c');
+  });
+
+  // C6 regression: footer nodes cached aggData by reference once; after a
+  // refreshModel('filter') (e.g. cell edit) runAggStage assigns NEW aggData
+  // objects and footers kept showing the old numbers.
+  it('C6: footers and grand total re-sync aggData after an in-place data patch', () => {
+    const { model } = setup({
+      columnDefs: [
+        { field: 'country', rowGroup: true },
+        { field: 'sales', aggFunc: 'sum' },
+      ],
+      rowData: GROUP_DATA,
+      getRowId: (p) => p.data.id,
+      groupDefaultExpanded: -1,
+      groupTotalRow: 'bottom',
+      grandTotalRow: 'bottom',
+    });
+    // USA, a, b, USA-footer, UK, c, UK-footer, grand-footer
+    const usaFooter = model.getRow(3)!;
+    const grandFooter = model.getRow(7)!;
+    expect(usaFooter.aggData!.sales).toBe(300);
+    expect(grandFooter.aggData!.sales).toBe(350);
+    const usaFooterVersion = usaFooter.__version;
+
+    // in-place patch → refreshModel('filter'): groups (and cached footers) survive
+    const leaf = model.getRowNode('g1')!;
+    leaf.setData({ id: 'g1', name: 'a', country: 'USA', sales: 1100 });
+
+    expect(model.getRow(3)).toBe(usaFooter); // same cached footer node
+    expect(usaFooter.aggData!.sales).toBe(1300); // was stale 300
+    expect(usaFooter.__version).toBeGreaterThan(usaFooterVersion); // cells re-render
+    expect(model.getRow(7)!.aggData!.sales).toBe(1350);
+  });
+
+  // C36 regression: expansion overrides survived rowGroup-column changes and
+  // misapplied to unrelated groups that happen to share key strings.
+  it('C36: expansion overrides are cleared when the grouping columns change', () => {
+    const DATA: Row[] = [
+      { id: 'c1', name: 'a', country: 'X', region: 'X' },
+      { id: 'c2', name: 'b', country: 'Y', region: 'Y' },
+    ];
+    const { ctx, model } = setup({
+      columnDefs: [{ field: 'country', rowGroup: true }, { field: 'region' }, { field: 'name' }],
+      rowData: DATA,
+      getRowId: (p) => p.data.id,
+    });
+    model.getRow(0)!.setExpanded(true); // expand country group 'X' → override
+    expect(model.getRowCount()).toBe(3);
+    // regroup by 'region' — its group 'X' is unrelated to country 'X'
+    ctx.columnModel.setRowGroupColumns(['region']);
+    expect(model.getRow(0)!.field).toBe('region');
+    // old code: the stale 'X' override leaked and expanded region 'X'
+    expect(model.getRow(0)!.expanded).toBe(false);
+    expect(model.getRowCount()).toBe(2);
   });
 });
 

@@ -30,7 +30,18 @@ export class ColumnModel<TData = unknown> {
   private secondaryHeaderTree: HeaderNode<TData>[] | null = null;
   /** Primary header group tree (from ColGroupDefs). */
   private primaryHeaderTree: HeaderNode<TData>[] = [];
-  private autoGroupColumn: Column<TData> | null = null;
+  /**
+   * Synthetic group columns, in group-level order. Empty when not grouping or
+   * when groupDisplayType is 'groupRows'. One entry for 'singleColumn', one per
+   * active rowGroup column for 'multipleColumns'.
+   */
+  private autoGroupColumns: Column<TData>[] = [];
+  /** colId → group level for auto group columns (renderer queries this). */
+  private autoGroupLevels = new Map<string, number>();
+  /** colId → source rowGroup colId (null for the single/treeData auto column). */
+  private autoGroupSourceIds = new Map<string, string | null>();
+  /** Identity of the current auto column set; rebuild only when it changes. */
+  private autoGroupSignature = '';
   private selectionColumn: Column<TData> | null = null;
   private viewportWidth = 0;
   /** Cache of displayed split; invalidated on any column change. */
@@ -49,10 +60,28 @@ export class ColumnModel<TData = unknown> {
 
   setColumnDefs(defs: ColDefOrGroup<TData>[]): void {
     const prevById = this.colsById;
-    const keepState = this.primaryColumns.length > 0 && !this.ctx.options.get('maintainColumnOrder');
+    // Per-column state is ALWAYS preserved across setColumnDefs for surviving
+    // colIds. maintainColumnOrder is purely an ordering concern (below).
+    const keepState = this.primaryColumns.length > 0;
+    const prevOrder =
+      keepState && this.ctx.options.get('maintainColumnOrder') === true
+        ? new Map(this.primaryColumns.map((c, i) => [c.colId, i]))
+        : null;
     this.colsById = new Map();
     this.primaryColumns = [];
     this.primaryHeaderTree = this.buildTree(defs, prevById, keepState);
+    if (prevOrder && prevOrder.size > 0) {
+      // maintainColumnOrder: surviving columns keep the PREVIOUS display order;
+      // brand-new columns are appended at the end in def order.
+      const surviving: Column<TData>[] = [];
+      const added: Column<TData>[] = [];
+      for (const c of this.primaryColumns) {
+        (prevOrder.has(c.colId) ? surviving : added).push(c);
+      }
+      surviving.sort((a, b) => prevOrder.get(a.colId)! - prevOrder.get(b.colId)!);
+      this.primaryColumns = [...surviving, ...added];
+      this.rebuildFlatTreeAfterReorder();
+    }
     this.syncAutoGroupColumn();
     this.invalidate();
     this.ctx.events.dispatch(this.baseEvent('newColumnsLoaded'));
@@ -158,7 +187,9 @@ export class ColumnModel<TData = unknown> {
   /* --------------------------------------------------------------- lookups */
 
   getColumn(colId: string): Column<TData> | undefined {
-    if (this.autoGroupColumn?.colId === colId) return this.autoGroupColumn;
+    for (const auto of this.autoGroupColumns) {
+      if (auto.colId === colId) return auto;
+    }
     const primary = this.colsById.get(colId);
     if (primary) return primary;
     return this.secondaryColumns?.find((c) => c.colId === colId);
@@ -193,33 +224,64 @@ export class ColumnModel<TData = unknown> {
     return this.ctx.options.get('pivotMode') === true;
   }
 
+  /**
+   * Options updates (groupDisplayType etc.) only invalidate the displayed
+   * cache; resync the auto columns lazily before answering from them. When the
+   * cache exists it was built after a sync, so the set is already current.
+   */
+  private ensureAutoGroupSynced(): void {
+    if (!this.displayedCache) this.syncAutoGroupColumn();
+  }
+
+  /** First auto group column (compat accessor). */
   getAutoGroupColumn(): Column<TData> | null {
-    return this.autoGroupColumn;
+    this.ensureAutoGroupSynced();
+    return this.autoGroupColumns[0] ?? null;
+  }
+
+  /** All auto group columns in group-level order. */
+  getAutoGroupColumns(): Column<TData>[] {
+    this.ensureAutoGroupSynced();
+    return this.autoGroupColumns;
+  }
+
+  /** Group level of an auto group column, or null if colId is not one. */
+  getAutoGroupLevel(colId: string): number | null {
+    this.ensureAutoGroupSynced();
+    return this.autoGroupLevels.get(colId) ?? null;
+  }
+
+  /**
+   * Source rowGroup colId for a 'multipleColumns' auto group column; null for
+   * the single auto column or unknown colIds.
+   */
+  getAutoGroupSourceColId(colId: string): string | null {
+    this.ensureAutoGroupSynced();
+    return this.autoGroupSourceIds.get(colId) ?? null;
   }
 
   /* ------------------------------------------------- displayed columns split */
 
   getDisplayed(): { left: Column<TData>[]; center: Column<TData>[]; right: Column<TData>[]; all: Column<TData>[] } {
     if (this.displayedCache) return this.displayedCache;
-    const groupCols = this.getRowGroupColumns();
-    const grouping = groupCols.length > 0 || this.ctx.options.get('treeData') === true;
-    const displayType = this.ctx.options.get('groupDisplayType');
+    // Lazily resync: groupDisplayType option updates only invalidate the cache.
+    this.syncAutoGroupColumn();
     const pivotMode = this.isPivotMode();
 
-    let cols: Column<TData>[] = [];
+    const cols: Column<TData>[] = [];
     this.syncSelectionColumn();
     if (this.selectionColumn) cols.push(this.selectionColumn);
-    if (this.autoGroupColumn && grouping && displayType === 'singleColumn') {
-      cols.push(this.autoGroupColumn);
-    }
+    // Auto group columns first, in level order. Empty when not grouping or
+    // when groupDisplayType is 'groupRows' (group nodes render as full-width rows).
+    cols.push(...this.autoGroupColumns);
     if (pivotMode && this.secondaryColumns) {
       cols.push(...this.secondaryColumns);
     } else {
       for (const c of this.primaryColumns) {
         if (!c.visible) continue;
         if (pivotMode) continue; // pivot mode with no result yet: only group col
-        if (c.rowGroupActive && displayType === 'singleColumn') continue;
-        if (grouping && displayType === 'groupRows' && c.rowGroupActive) continue;
+        // Grouped source columns are hidden in every groupDisplayType.
+        if (c.rowGroupActive) continue;
         cols.push(c);
       }
     }
@@ -467,6 +529,11 @@ export class ColumnModel<TData = unknown> {
       this.emitDisplayedChanged();
       return;
     }
+    // Carry sort/width state over from previous secondary columns by colId so
+    // regenerating the pivot result (path set changed) does not wipe user state.
+    const prevSecondaryById = this.secondaryColumns
+      ? new Map(this.secondaryColumns.map((c) => [c.colId, c]))
+      : null;
     const cols: Column<TData>[] = [];
     // Build header tree by shared pivot key prefixes.
     const rootChildren: HeaderNode<TData>[] = [];
@@ -474,6 +541,14 @@ export class ColumnModel<TData = unknown> {
     for (const def of defs) {
       const colId = def.colDef.colId ?? nextId('au-pivot');
       const col = new Column<TData>(colId, def.colDef);
+      const prev = prevSecondaryById?.get(colId);
+      if (prev) {
+        col.sort = prev.sort;
+        col.sortIndex = prev.sortIndex;
+        col.width = prev.width;
+        col.actualWidth = prev.actualWidth;
+        col.flex = prev.flex;
+      }
       col.secondary = true;
       col.pivotKeys = def.keys;
       col.pivotValueColId = def.valueCol.colId;
@@ -523,7 +598,8 @@ export class ColumnModel<TData = unknown> {
         });
       }
       const anyLeft = this.primaryColumns.some((c) => c.visible && c.pinned === 'left');
-      this.selectionColumn.pinned = anyLeft || this.autoGroupColumn?.pinned === 'left' ? 'left' : null;
+      const autoLeft = this.autoGroupColumns.some((c) => c.pinned === 'left');
+      this.selectionColumn.pinned = anyLeft || autoLeft ? 'left' : null;
     } else {
       this.selectionColumn = null;
     }
@@ -536,26 +612,72 @@ export class ColumnModel<TData = unknown> {
   /* --------------------------------------------------------- auto group col */
 
   private syncAutoGroupColumn(): void {
-    const grouping =
-      this.getRowGroupColumns().length > 0 || this.ctx.options.get('treeData') === true;
+    const rowGroupCols = this.getRowGroupColumns();
+    const grouping = rowGroupCols.length > 0 || this.ctx.options.get('treeData') === true;
     const displayType = this.ctx.options.get('groupDisplayType');
-    if (grouping && displayType === 'singleColumn') {
-      if (!this.autoGroupColumn) {
-        const userDef = this.ctx.options.get('autoGroupColumnDef') ?? {};
-        const def: ColDef<TData> = {
-          headerName: 'Group',
-          minWidth: 160,
-          width: 220,
-          ...userDef,
-          colId: 'au-group-col',
-        };
-        this.autoGroupColumn = new Column<TData>('au-group-col', def);
-        this.autoGroupColumn.isAutoGroupCol = true;
-        this.autoGroupColumn.pinned = def.pinned === true || def.pinned === 'left' ? 'left' : def.pinned === 'right' ? 'right' : null;
-      }
-    } else {
-      this.autoGroupColumn = null;
+
+    // Desired auto column set for the current displayType + rowGroup set.
+    interface AutoSpec {
+      colId: string;
+      headerName: string | undefined;
+      level: number;
+      sourceColId: string | null;
     }
+    const specs: AutoSpec[] = [];
+    if (grouping && displayType !== 'groupRows') {
+      if (displayType === 'multipleColumns' && rowGroupCols.length > 0) {
+        // One auto group column per active rowGroup column, in rowGroupIndex order.
+        for (let level = 0; level < rowGroupCols.length; level++) {
+          const src = rowGroupCols[level];
+          specs.push({
+            colId: `au-group-col-${src.colId}`,
+            headerName: src.getHeaderName(),
+            level,
+            sourceColId: src.colId,
+          });
+        }
+      } else {
+        // 'singleColumn', or treeData under 'multipleColumns' (no source cols).
+        specs.push({ colId: 'au-group-col', headerName: undefined, level: 0, sourceColId: null });
+      }
+    }
+
+    const signature =
+      String(displayType) + '|' + specs.map((s) => `${s.colId}:${s.headerName ?? ''}`).join(',');
+    if (signature === this.autoGroupSignature) return; // identity stable: keep columns
+    this.autoGroupSignature = signature;
+
+    const prevById = new Map(this.autoGroupColumns.map((c) => [c.colId, c]));
+    this.autoGroupLevels.clear();
+    this.autoGroupSourceIds.clear();
+    const userDef = this.ctx.options.get('autoGroupColumnDef') ?? {};
+    this.autoGroupColumns = specs.map((spec) => {
+      const def: ColDef<TData> = {
+        headerName: 'Group',
+        minWidth: 160,
+        width: 220,
+        ...userDef,
+        ...(spec.headerName !== undefined ? { headerName: spec.headerName } : {}),
+        colId: spec.colId,
+      };
+      const col = new Column<TData>(spec.colId, def);
+      col.isAutoGroupCol = true;
+      col.pinned =
+        def.pinned === true || def.pinned === 'left' ? 'left' : def.pinned === 'right' ? 'right' : null;
+      const prev = prevById.get(spec.colId);
+      if (prev) {
+        // Surviving auto columns keep their user state across rebuilds.
+        col.width = prev.width;
+        col.actualWidth = prev.actualWidth;
+        col.flex = prev.flex;
+        col.sort = prev.sort;
+        col.sortIndex = prev.sortIndex;
+        col.pinned = prev.pinned;
+      }
+      this.autoGroupLevels.set(spec.colId, spec.level);
+      this.autoGroupSourceIds.set(spec.colId, spec.sourceColId);
+      return col;
+    });
   }
 
   /* ------------------------------------------------------------ header tree */
@@ -573,9 +695,10 @@ export class ColumnModel<TData = unknown> {
 
     const build = (region: Column<TData>[]): HeaderNode<TData>[] => {
       const inRegion = new Set(region);
+      const autoSet = new Set(this.autoGroupColumns);
       const auto: HeaderNode<TData>[] = [];
-      if (this.autoGroupColumn && inRegion.has(this.autoGroupColumn)) {
-        auto.push({ kind: 'col', column: this.autoGroupColumn });
+      for (const c of this.autoGroupColumns) {
+        if (inRegion.has(c)) auto.push({ kind: 'col', column: c });
       }
       const prune = (nodes: HeaderNode<TData>[]): HeaderNode<TData>[] => {
         const out: HeaderNode<TData>[] = [];
@@ -603,7 +726,7 @@ export class ColumnModel<TData = unknown> {
       markCovered(tree);
       const pruned = prune(tree);
       const extras: HeaderNode<TData>[] = region
-        .filter((c) => !covered.has(c) && c !== this.autoGroupColumn)
+        .filter((c) => !covered.has(c) && !autoSet.has(c))
         .map((column) => ({ kind: 'col' as const, column }));
       // Order top-level nodes by first-leaf display order.
       const all = [...auto, ...pruned, ...extras];

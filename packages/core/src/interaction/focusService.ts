@@ -1,6 +1,21 @@
 import type { GridContext, IFocusService } from '../context';
 import type { CellPosition, RowPinnedPosition } from '../types/base';
+import type { RowNode } from '../rows/rowNode';
 import { clamp } from '../utils/general';
+
+/** Keys that initialise focus on the first cell when nothing is focused yet. */
+const FOCUS_INIT_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Tab',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+  'Enter',
+]);
 
 /**
  * FocusService — the grid's single keyboard dispatcher and focused-cell state
@@ -25,6 +40,11 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
 
   setFocusedCell(rowIndex: number, colId: string, rowPinned: RowPinnedPosition = null): void {
     const ctx = this.ctx;
+    if (ctx.options.is('suppressCellFocus')) {
+      // Cell focus disabled: never install a focused cell, drop any existing one.
+      if (this.focused) this.clearFocusedCell();
+      return;
+    }
     if (!ctx.columnModel.getColumn(colId)) return; // unknown column: ignore
     if (rowPinned == null) {
       const count = ctx.rowModel.getRowCount();
@@ -209,8 +229,15 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
       }
     }
 
+    if (ctx.options.is('suppressCellFocus')) return; // nav keys are inert (Ctrl+A above still works)
+
     const focused = this.focused;
-    if (!focused) return;
+    if (!focused) {
+      // Keyboard entry (e.g. Tab into the grid): the first navigation key
+      // initialises focus on the first displayed cell and is consumed.
+      if (FOCUS_INIT_KEYS.has(key) && this.initFocusIfNone()) e.preventDefault();
+      return;
+    }
     this.currentKey = key;
     const rowCount = ctx.rowModel.getRowCount();
     const nCols = ctx.columnModel.getDisplayedColumns().length;
@@ -225,14 +252,47 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
         this.navigateBy(ctrl ? rowCount : 1, 0, extend);
         e.preventDefault();
         return;
-      case 'ArrowLeft':
+      case 'ArrowLeft': {
+        if (!ctrl && !extend && focused.rowPinned == null) {
+          const node = ctx.rowModel.getRow(focused.rowIndex);
+          if (node) {
+            // ARIA treegrid: collapse an expanded group…
+            if (this.isExpandableGroup(node) && node.expanded) {
+              node.setExpanded(false);
+              e.preventDefault();
+              return;
+            }
+            // …or move focus to the parent group row of a leaf/collapsed group.
+            const parent = node.parent;
+            if (
+              (!node.group || !node.expanded) &&
+              parent &&
+              parent.rowIndex >= 0 &&
+              ctx.rowModel.getRow(parent.rowIndex) === parent
+            ) {
+              this.setFocusedCell(parent.rowIndex, focused.colId);
+              e.preventDefault();
+              return;
+            }
+          }
+        }
         this.navigateBy(0, ctrl ? -nCols : -1, extend);
         e.preventDefault();
         return;
-      case 'ArrowRight':
+      }
+      case 'ArrowRight': {
+        if (!ctrl && !extend && focused.rowPinned == null) {
+          const node = ctx.rowModel.getRow(focused.rowIndex);
+          if (node && this.isExpandableGroup(node) && !node.expanded) {
+            node.setExpanded(true); // ARIA treegrid: expand a collapsed group
+            e.preventDefault();
+            return;
+          }
+        }
         this.navigateBy(0, ctrl ? nCols : 1, extend);
         e.preventDefault();
         return;
+      }
       case 'Tab': {
         const moved = this.tabNavigate(e.shiftKey, false);
         if (moved) e.preventDefault(); // else: let the browser tab out of the grid
@@ -255,7 +315,6 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
         e.preventDefault();
         return;
       }
-      case 'Enter':
       case 'F2':
         ctx.editing.startEditing({
           rowIndex: focused.rowIndex,
@@ -265,6 +324,27 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
         });
         e.preventDefault();
         return;
+      case 'Enter': {
+        const started = ctx.editing.startEditing({
+          rowIndex: focused.rowIndex,
+          colId: focused.colId,
+          rowPinned: focused.rowPinned,
+          event: e,
+        });
+        if (!started) {
+          // Not editable: toggle expandable group rows (ARIA treegrid), else
+          // Enter navigates vertically when enterNavigatesVertically is on.
+          const node =
+            focused.rowPinned == null ? ctx.rowModel.getRow(focused.rowIndex) : undefined;
+          if (node && this.isExpandableGroup(node)) {
+            node.setExpanded(!node.expanded);
+          } else if (ctx.options.get('enterNavigatesVertically') === true) {
+            this.navigateBy(e.shiftKey ? -1 : 1, 0);
+          }
+        }
+        e.preventDefault();
+        return;
+      }
       case 'Delete':
       case 'Backspace':
         this.handleClear();
@@ -325,6 +405,27 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
     }
   }
 
+  /**
+   * Keyboard entry with no focused cell: focus the first displayed cell
+   * (first row, first displayed column). Returns true when focus was set —
+   * the triggering key is consumed (no movement on that first press).
+   */
+  private initFocusIfNone(): boolean {
+    const ctx = this.ctx;
+    if (this.focused) return false;
+    if (ctx.options.is('suppressCellFocus')) return false;
+    if (ctx.rowModel.getRowCount() === 0) return false;
+    const cols = ctx.columnModel.getDisplayedColumns();
+    if (cols.length === 0) return false;
+    this.setFocusedCell(0, cols[0]!.colId);
+    return this.focused != null;
+  }
+
+  /** Group row that can be expanded/collapsed (mirrors the renderer's chevron rule). */
+  private isExpandableGroup(node: RowNode<TData>): boolean {
+    return node.group && !node.footer && (node.childrenAfterFilter?.length ?? 0) > 0;
+  }
+
   /* -------------------------------------------------------------- behaviors */
 
   /** Delete/Backspace: clear cells in ranges (or the focused cell) to null. */
@@ -357,6 +458,9 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
       const rowCount = ctx.rowModel.getRowCount();
       const colIds = ctx.columnModel.getDisplayedColumns().map((c) => c.colId);
       if (rowCount > 0 && colIds.length > 0) {
+        // Replace, not append: repeated Ctrl+A must not stack duplicate
+        // all-cell ranges (duplicated rows in copy output).
+        ctx.range.clearCellSelection();
         ctx.range.addCellRange({ startRowIndex: 0, endRowIndex: rowCount - 1, colIds });
         ctx.scheduleRender();
       }

@@ -70,7 +70,12 @@ export class ColumnResizeService implements IColumnResizeService {
 
   private applyWidth(colId: string, width: number, finished: boolean, source: string): void {
     this.ctx.columnModel.setColumnWidths([{ colId, width }], finished, source);
-    this.ctx.renderer.markHeaderDirty();
+    // During an in-flight drag (finished=false) only schedule a render: the
+    // renderer's cheap header-geometry pass updates existing header cell
+    // left/width styles from column state without rebuilding components.
+    // A full header rebuild (markHeaderDirty) happens once, on gesture end
+    // (mouseup / Escape) and on dblclick autosize — both finished=true.
+    if (finished) this.ctx.renderer.markHeaderDirty();
     this.ctx.scheduleRender();
   }
 

@@ -1,6 +1,9 @@
 import type { IRowNode } from '../types/rowNode';
 import type { RowPinnedPosition } from '../types/base';
 import type { GridContext } from '../context';
+// Circular with stages.ts is safe: both sides use each other only inside
+// function bodies, never during module initialization.
+import { joinGroupPath } from './stages';
 
 let nodeIdSeq = 0;
 
@@ -79,13 +82,16 @@ export class RowNode<TData = unknown> implements IRowNode<TData> {
   /** Composite group identity path (group rows) — used to persist expansion. */
   getGroupPath(): string {
     if (this.__groupPath !== null) return this.__groupPath;
+    // Fallback for group nodes not stamped by the group stage (e.g. footers):
+    // must match the stage's SEP-prefixed scheme (stages.joinGroupPath).
     const parts: string[] = [];
     let cur: RowNode<TData> | null = this;
-    while (cur && cur.group) {
+    while (cur && cur.group && cur.level >= 0) {
       parts.push(cur.key ?? '');
       cur = cur.parent;
     }
-    this.__groupPath = parts.reverse().join('|');
+    parts.reverse();
+    this.__groupPath = joinGroupPath(parts);
     return this.__groupPath;
   }
 }

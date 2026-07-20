@@ -16,10 +16,6 @@ function startedByTyping(params: CellEditorParams<unknown>): boolean {
   return params.eventKey != null && params.eventKey.length === 1;
 }
 
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n);
-}
-
 /* ------------------------------------------------------------------- text */
 
 export class TextCellEditor<TData = unknown> implements CellEditorComp<TData> {
@@ -80,6 +76,8 @@ export class NumberCellEditor<TData = unknown> extends TextCellEditor<TData> {
 
 export class DateCellEditor<TData = unknown> implements CellEditorComp<TData> {
   private eInput!: HTMLInputElement;
+  /** 'yyyy-mm-dd' the editor started from ('' when no valid initial value). */
+  private initialValue = '';
 
   init(params: CellEditorParams<TData>): void {
     this.eInput = document.createElement('input');
@@ -87,10 +85,14 @@ export class DateCellEditor<TData = unknown> implements CellEditorComp<TData> {
     this.eInput.className = 'au-editor-input';
     const v = params.value;
     if (v instanceof Date && !Number.isNaN(v.getTime())) {
-      this.eInput.value = `${v.getFullYear()}-${pad2(v.getMonth() + 1)}-${pad2(v.getDate())}`;
+      // Format with UTC accessors: 'yyyy-mm-dd' strings are UTC-parsed on
+      // commit, so local-time formatting would shift the date a day back in
+      // negative-offset timezones.
+      this.initialValue = v.toISOString().slice(0, 10);
     } else if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) {
-      this.eInput.value = v.slice(0, 10);
+      this.initialValue = v.slice(0, 10);
     }
+    this.eInput.value = this.initialValue;
   }
 
   getGui(): HTMLElement {
@@ -100,6 +102,11 @@ export class DateCellEditor<TData = unknown> implements CellEditorComp<TData> {
   /** Returns the 'yyyy-mm-dd' string (null when cleared). */
   getValue(): unknown {
     return this.eInput.value === '' ? null : this.eInput.value;
+  }
+
+  /** No-op edit (unchanged yyyy-mm-dd) must not commit / fire cellValueChanged. */
+  isCancelAfterEnd(): boolean {
+    return this.eInput.value === this.initialValue;
   }
 
   afterGuiAttached(): void {

@@ -70,6 +70,54 @@ describe('exportCsv', () => {
     expect(exportCsv(ctx, { columnSeparator: ';' })).toBe('Name;Price\n"a;b";1');
   });
 
+  it('neutralizes formula-injection prefixes in string values', () => {
+    const ctx = setup({
+      rowData: [
+        { id: 1, name: '=SUM(A1:A9)', price: 1 },
+        { id: 2, name: '+cmd', price: 2 },
+        { id: 3, name: '-cmd', price: 3 },
+        { id: 4, name: '@cmd', price: 4 },
+        { id: 5, name: '\tcmd', price: 5 },
+        { id: 6, name: '\rcmd', price: 6 },
+      ],
+    });
+    expect(exportCsv(ctx)).toBe(
+      "Name,Price\n'=SUM(A1:A9),1\n'+cmd,2\n'-cmd,3\n'@cmd,4\n'\tcmd,5\n\"'\rcmd\",6",
+    );
+  });
+
+  it('does not neutralize negative numbers (typeof number exempt)', () => {
+    const ctx = setup({
+      rowData: [{ id: 1, name: 'ok', price: -5 }],
+    });
+    expect(exportCsv(ctx)).toBe('Name,Price\nok,-5');
+    expect(exportCsv(ctx, { useFormattedValues: false })).toBe('Name,Price\nok,-5');
+    // ...even when a formatter renders the number with a leading minus.
+    const formatted = setup({
+      columnDefs: [
+        { field: 'name' },
+        { field: 'price', valueFormatter: (p) => `-${Math.abs(p.value as number)}` },
+      ],
+      rowData: [{ id: 1, name: 'ok', price: 5 }],
+    });
+    expect(exportCsv(formatted)).toBe('Name,Price\nok,-5');
+  });
+
+  it('neutralization composes with CSV quoting', () => {
+    const ctx = setup({
+      rowData: [{ id: 1, name: '=a,b', price: 1 }],
+    });
+    expect(exportCsv(ctx)).toBe('Name,Price\n"\'=a,b",1');
+  });
+
+  it('neutralizes formula prefixes in header names', () => {
+    const ctx = setup({
+      columnDefs: [{ field: 'name', headerName: '=EVIL()' }, { field: 'price' }],
+      rowData: [{ id: 1, name: 'ok', price: 1 }],
+    });
+    expect(exportCsv(ctx)).toBe("'=EVIL(),Price\nok,1");
+  });
+
   it('allColumns exports visible primary columns; grouped rows export leaves only', () => {
     const { ctx, start } = createMockContext<{ cat: string; val: number }>({
       columnDefs: [{ field: 'cat', rowGroup: true }, { field: 'val' }],

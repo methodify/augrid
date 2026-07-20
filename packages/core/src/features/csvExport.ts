@@ -13,10 +13,15 @@ export function exportCsv<TData>(ctx: GridContext<TData>, params: CsvExportParam
   ).filter((c) => c.colId !== 'au-selection-col');
 
   const useFormatted = params.useFormattedValues !== false;
+  const neutralize = params.suppressFormulaEscaping !== true;
   const lines: string[] = [];
 
   if (!params.skipHeaders) {
-    lines.push(columns.map((c) => escapeCsvValue(c.getHeaderName(), separator)).join(separator));
+    lines.push(
+      columns
+        .map((c) => escapeCsvValue(neutralize ? neutralizeFormula(c.getHeaderName()) : c.getHeaderName(), separator))
+        .join(separator),
+    );
   }
 
   ctx.rowModel.forEachNodeAfterFilterAndSort?.((node: RowNode<TData>) => {
@@ -24,9 +29,11 @@ export function exportCsv<TData>(ctx: GridContext<TData>, params: CsvExportParam
     if (node.group && node.data === undefined) return;
     if (params.onlySelected && node.isSelected() !== true) return;
     const cells = columns.map((col) => {
-      const value = useFormatted
-        ? ctx.values.getFormattedValue(node, col)
-        : rawToString(ctx.values.getValue(node, col));
+      const raw = ctx.values.getValue(node, col);
+      let value = useFormatted ? ctx.values.getFormattedValue(node, col) : rawToString(raw);
+      // Numeric cell values are exempt (a leading minus is just a negative
+      // number); everything else gets formula-injection neutralization.
+      if (neutralize && typeof raw !== 'number') value = neutralizeFormula(value);
       return escapeCsvValue(value, separator);
     });
     lines.push(cells.join(separator));
@@ -37,6 +44,15 @@ export function exportCsv<TData>(ctx: GridContext<TData>, params: CsvExportParam
 
 function rawToString(value: unknown): string {
   return value == null ? '' : String(value);
+}
+
+/**
+ * Defuse spreadsheet formula injection: a leading = + - @ tab or CR makes
+ * Excel/Sheets treat the cell as a formula on import. Prefix a single quote
+ * so the value imports as literal text.
+ */
+function neutralizeFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
 function escapeCsvValue(value: string, separator: string): string {

@@ -4,6 +4,8 @@ import type { GridContext } from '../context';
 import type { GridOptions } from '../types/gridOptions';
 import { RowNode } from './rowNode';
 import {
+  GROUP_PATH_SEP,
+  joinGroupPath,
   PIVOT_SEP,
   pivotColId,
   runAggStage,
@@ -12,6 +14,9 @@ import {
   runSortStage,
   type SortSpec,
 } from './stages';
+
+/** Shorthand: group path from key segments (C8 scheme: SEP-prefixed segments). */
+const P = (...segs: string[]): string => joinGroupPath(segs);
 
 interface Row {
   country?: string;
@@ -65,8 +70,8 @@ describe('runGroupStage', () => {
     expect(groups.every((g) => g.level === 0)).toBe(true);
     expect(groups.every((g) => g.parent === root)).toBe(true);
     expect(groups[0].field).toBe('country');
-    expect([...groupsByPath.keys()].sort()).toEqual(['UK', 'USA']);
-    const usa = groupsByPath.get('USA')!;
+    expect([...groupsByPath.keys()].sort()).toEqual([P('UK'), P('USA')]);
+    const usa = groupsByPath.get(P('USA'))!;
     expect(usa.childrenAfterGroup).toHaveLength(3);
     expect(usa.childrenAfterGroup![0].parent).toBe(usa);
     expect(usa.childrenAfterGroup![0].level).toBe(1);
@@ -82,13 +87,13 @@ describe('runGroupStage', () => {
     });
     const leaves = makeLeaves(ctx, SALES_DATA);
     const { groupsByPath } = runGroupStage(ctx, leaves, null, 0);
-    expect(groupsByPath.has('USA')).toBe(true);
-    expect(groupsByPath.has('USA|2020')).toBe(true);
-    expect(groupsByPath.has('USA|2021')).toBe(true);
-    expect(groupsByPath.has('UK|2020')).toBe(true);
-    const usa2020 = groupsByPath.get('USA|2020')!;
+    expect(groupsByPath.has(P('USA'))).toBe(true);
+    expect(groupsByPath.has(P('USA', '2020'))).toBe(true);
+    expect(groupsByPath.has(P('USA', '2021'))).toBe(true);
+    expect(groupsByPath.has(P('UK', '2020'))).toBe(true);
+    const usa2020 = groupsByPath.get(P('USA', '2020'))!;
     expect(usa2020.level).toBe(1);
-    expect(usa2020.parent).toBe(groupsByPath.get('USA'));
+    expect(usa2020.parent).toBe(groupsByPath.get(P('USA')));
     expect(usa2020.childrenAfterGroup).toHaveLength(2);
     expect(usa2020.childrenAfterGroup![0].level).toBe(2);
   });
@@ -102,16 +107,91 @@ describe('runGroupStage', () => {
     });
     // defaultExpanded 1: only level 0 expanded
     let res = runGroupStage(ctx, makeLeaves(ctx, SALES_DATA), null, 1);
-    expect(res.groupsByPath.get('USA')!.expanded).toBe(true);
-    expect(res.groupsByPath.get('USA|2020')!.expanded).toBe(false);
+    expect(res.groupsByPath.get(P('USA'))!.expanded).toBe(true);
+    expect(res.groupsByPath.get(P('USA', '2020'))!.expanded).toBe(false);
     // -1: everything expanded
     res = runGroupStage(ctx, makeLeaves(ctx, SALES_DATA), null, -1);
-    expect(res.groupsByPath.get('USA|2020')!.expanded).toBe(true);
-    // overrides win over defaults, both directions
-    res = runGroupStage(ctx, makeLeaves(ctx, SALES_DATA), new Set(['USA|2020', '!USA']), 0);
-    expect(res.groupsByPath.get('USA|2020')!.expanded).toBe(true);
-    expect(res.groupsByPath.get('USA')!.expanded).toBe(false);
-    expect(res.groupsByPath.get('UK')!.expanded).toBe(false); // default 0
+    expect(res.groupsByPath.get(P('USA', '2020'))!.expanded).toBe(true);
+    // C34: overrides are a Map<path, expanded> — win over defaults, both directions
+    res = runGroupStage(
+      ctx,
+      makeLeaves(ctx, SALES_DATA),
+      new Map([
+        [P('USA', '2020'), true],
+        [P('USA'), false],
+      ]),
+      0,
+    );
+    expect(res.groupsByPath.get(P('USA', '2020'))!.expanded).toBe(true);
+    expect(res.groupsByPath.get(P('USA'))!.expanded).toBe(false);
+    expect(res.groupsByPath.get(P('UK'))!.expanded).toBe(false); // default 0
+  });
+
+  // C34 regression: the old single-Set encoding stored "collapse USA" as the
+  // string '!'+path, which was indistinguishable from "expand" of a group whose
+  // key starts with '!'. A collapse override for 'USA' must not expand '!USA'.
+  it('C34: collapse override for a key does not affect a group keyed with a leading "!"', () => {
+    const ctx = ctxWith({
+      columnDefs: [{ field: 'country', rowGroup: true }, { field: 'sales' }],
+    });
+    const data: Row[] = [
+      { country: 'USA', sales: 1 },
+      { country: '!USA', sales: 2 },
+    ];
+    const res = runGroupStage(ctx, makeLeaves(ctx, data), new Map([[P('USA'), false]]), 0);
+    expect(res.groupsByPath.get(P('USA'))!.expanded).toBe(false);
+    // old code: Set{'!'+P('USA')} made the '!USA' group read as "expanded"
+    expect(res.groupsByPath.get(P('!USA'))!.expanded).toBe(false);
+  });
+
+  // C8 regression: keys containing '|' used to collide across levels because
+  // paths were joined with '|'.
+  it('C8: keys containing the old "|" joiner do not collide across levels', () => {
+    const ctx = ctxWith({
+      columnDefs: [
+        { field: 'country', rowGroup: true, rowGroupIndex: 0 },
+        { field: 'year', rowGroup: true, rowGroupIndex: 1 },
+        { field: 'sales' },
+      ],
+    });
+    // Old scheme: both produced the path 'a|b|c' and overwrote each other.
+    const data: Row[] = [
+      { country: 'a|b', year: 'c', sales: 1 },
+      { country: 'a', year: 'b|c', sales: 2 },
+    ];
+    const { groupsByPath } = runGroupStage(ctx, makeLeaves(ctx, data), null, 0);
+    expect(groupsByPath.size).toBe(4);
+    expect(groupsByPath.get(P('a|b', 'c'))!.level).toBe(1);
+    expect(groupsByPath.get(P('a', 'b|c'))!.level).toBe(1);
+    expect(groupsByPath.get(P('a|b', 'c'))).not.toBe(groupsByPath.get(P('a', 'b|c')));
+  });
+
+  // C8 regression: the old empty-parentPath special case made a level-1 group
+  // under an empty-key parent collide with a level-0 group of the same key.
+  it('C8: empty-string keys do not collide across levels', () => {
+    const ctx = ctxWith({
+      columnDefs: [
+        { field: 'country', rowGroup: true, rowGroupIndex: 0 },
+        { field: 'year', rowGroup: true, rowGroupIndex: 1 },
+        { field: 'sales' },
+      ],
+    });
+    // Old scheme: level-1 'x' under level-0 '' had path 'x', colliding with
+    // level-0 group 'x'.
+    const data: Row[] = [
+      { country: '', year: 'x', sales: 1 },
+      { country: 'x', year: 'y', sales: 2 },
+    ];
+    const { groupsByPath } = runGroupStage(ctx, makeLeaves(ctx, data), null, 0);
+    expect(groupsByPath.size).toBe(4);
+    expect(groupsByPath.get(P(''))!.level).toBe(0);
+    expect(groupsByPath.get(P('', 'x'))!.level).toBe(1);
+    expect(groupsByPath.get(P('x'))!.level).toBe(0);
+    expect(groupsByPath.get(P('', 'x'))).not.toBe(groupsByPath.get(P('x')));
+    // Paths always carry the root prefix.
+    for (const path of groupsByPath.keys()) {
+      expect(path.startsWith(GROUP_PATH_SEP)).toBe(true);
+    }
   });
 
   it('tree data: parent data row appearing BEFORE its children gets a children array', () => {
@@ -128,11 +208,11 @@ describe('runGroupStage', () => {
     ];
     const leaves = makeLeaves(ctx, data);
     const { root, groupsByPath } = runGroupStage(ctx, leaves, null, -1);
-    const a = groupsByPath.get('A')!;
+    const a = groupsByPath.get(P('A'))!;
     expect(a).toBe(leaves[0]);
     expect(a.group).toBe(true);
     expect(a.childrenAfterGroup!.map((c) => c.key)).toEqual(['B']);
-    const b = groupsByPath.get('A|B')!;
+    const b = groupsByPath.get(P('A', 'B'))!;
     expect(b).toBe(leaves[1]);
     expect(b.group).toBe(true);
     expect(b.childrenAfterGroup!.map((c) => c.key)).toEqual(['C']);
@@ -154,7 +234,7 @@ describe('runGroupStage', () => {
     const leaves = makeLeaves(ctx, data);
     const { root, groupsByPath } = runGroupStage(ctx, leaves, null, -1);
 
-    const a = groupsByPath.get('A')!;
+    const a = groupsByPath.get(P('A'))!;
     expect(a).toBe(leaves[1]); // filler upgraded to the data-backed node
     expect(a.group).toBe(true);
     expect(a.data).toEqual({ path: ['A'], value: 10, name: 'parent' });
@@ -207,7 +287,7 @@ describe('runFilterStage', () => {
     runFilterStage(root, (n) => (n.data?.sales ?? 0) >= 100);
     // UK (max 50) dropped, USA kept with 2 of 3 leaves
     expect(root.childrenAfterFilter!.map((g) => g.key)).toEqual(['USA']);
-    const usa = groupsByPath.get('USA')!;
+    const usa = groupsByPath.get(P('USA'))!;
     expect(usa.childrenAfterFilter!.map((n) => n.data!.name)).toEqual(['a', 'b']);
     expect(usa.allChildrenCount).toBe(2);
     expect(root.allChildrenCount).toBe(2);
@@ -239,7 +319,7 @@ describe('runAggStage', () => {
     const { root, groupsByPath } = runGroupStage(ctx, leaves, null, 0);
     runFilterStage(root, null);
     runAggStage(ctx, root);
-    return { root, usa: groupsByPath.get('USA')!, uk: groupsByPath.get('UK')! };
+    return { root, usa: groupsByPath.get(P('USA'))!, uk: groupsByPath.get(P('UK'))! };
   }
 
   it('sum', () => {
@@ -285,11 +365,11 @@ describe('runAggStage', () => {
     const paths = runAggStage(ctx, root);
     expect(paths).toEqual([['2020'], ['2021']]); // sorted unique
 
-    const usa = groupsByPath.get('USA')!;
+    const usa = groupsByPath.get(P('USA'))!;
     expect(usa.aggData![pivotColId(['2020'], 'sales')]).toBe(110); // 100 + 10
     expect(usa.aggData![pivotColId(['2021'], 'sales')]).toBe(200);
     expect(usa.aggData!.sales).toBe(310); // row total across buckets
-    const uk = groupsByPath.get('UK')!;
+    const uk = groupsByPath.get(P('UK'))!;
     expect(uk.aggData![pivotColId(['2020'], 'sales')]).toBe(50);
     expect(uk.aggData![pivotColId(['2021'], 'sales')]).toBeUndefined();
     expect(pivotColId(['2020'], 'sales')).toBe(`pivot${PIVOT_SEP}2020${PIVOT_SEP}sales`);
@@ -398,5 +478,34 @@ describe('runSortStage', () => {
     runFilterStage(root, null);
     runSortStage(ctx, root, []);
     expect(root.childrenAfterSort).toBe(root.childrenAfterFilter);
+  });
+
+  // C42 regression: initialGroupOrderComparator was accepted but never consumed.
+  it('C42: initialGroupOrderComparator orders group levels when no explicit sort', () => {
+    const ctx = ctxWith({
+      columnDefs: [{ field: 'country', rowGroup: true }, { field: 'sales' }],
+      // ascending by key: 'UK' before 'USA' (insertion order is USA, UK)
+      initialGroupOrderComparator: (p) => String(p.nodeA.key).localeCompare(String(p.nodeB.key)),
+    });
+    const leaves = makeLeaves(ctx, SALES_DATA);
+    const { root, groupsByPath } = runGroupStage(ctx, leaves, null, 0);
+    runFilterStage(root, null);
+    runSortStage(ctx, root, []);
+    expect(root.childrenAfterSort!.map((g) => g.key)).toEqual(['UK', 'USA']);
+    // leaf-only levels are untouched (no copy, no comparator)
+    const usa = groupsByPath.get(P('USA'))!;
+    expect(usa.childrenAfterSort).toBe(usa.childrenAfterFilter);
+  });
+
+  it('C42: an explicit sort wins over initialGroupOrderComparator', () => {
+    const ctx = ctxWith({
+      columnDefs: [{ field: 'country', rowGroup: true }, { field: 'sales' }],
+      initialGroupOrderComparator: (p) => String(p.nodeA.key).localeCompare(String(p.nodeB.key)),
+    });
+    const leaves = makeLeaves(ctx, SALES_DATA);
+    const { root } = runGroupStage(ctx, leaves, null, 0);
+    runFilterStage(root, null);
+    runSortStage(ctx, root, specs(ctx, ['country', 'desc']));
+    expect(root.childrenAfterSort!.map((g) => g.key)).toEqual(['USA', 'UK']);
   });
 });

@@ -4,12 +4,25 @@ import type { HeaderNode } from '../columns/columnModel';
 import { el } from '../utils/dom';
 import type { HeaderComp, HeaderParams } from '../types/colDef';
 
+interface SortIndicatorEntry {
+  ind: HTMLElement;
+  cell: HTMLElement;
+}
+
 /** Renders the column header rows (incl. group headers) and floating filters. */
 export class HeaderRenderer<TData> {
   private headerComps: HeaderComp<TData>[] = [];
   private frameworkCleanups: (() => void)[] = [];
-  private sortIndicators = new Map<string, HTMLElement>();
+  private floatingCleanups: (() => void)[] = [];
+  /** Build-time cache: colId → { indicator el, header cell el }. */
+  private sortIndicators = new Map<string, SortIndicatorEntry>();
+  /** colId → leaf header cell element, in displayed order. Rebuilt in refresh(). */
+  private headerCellMap = new Map<string, HTMLElement>();
   private headerCheckbox: HTMLInputElement | null = null;
+  /** Signature of the last-applied sort model; skip indicator writes when unchanged. */
+  private lastSortSignature: string | null = null;
+  /** Last-applied header checkbox state; skip writes when unchanged. */
+  private lastHeaderCheckboxState: boolean | 'indeterminate' | null = null;
 
   constructor(
     private ctx: GridContext<TData>,
@@ -25,30 +38,49 @@ export class HeaderRenderer<TData> {
       floatingCenter: HTMLElement;
       floatingRight: HTMLElement;
     },
-  ) {}
+  ) {
+    // Intermediate layout containers are transparent to the accessibility tree;
+    // the role='row' wrappers built per header level are the semantic children.
+    for (const e of [els.header, els.headerLeft, els.headerCenterVp, els.headerCenter, els.headerRight]) {
+      e.setAttribute('role', 'presentation');
+    }
+    // ONE delegated keydown listener for the whole header (no per-cell listeners).
+    this.els.header.addEventListener('keydown', this.onHeaderKeyDown);
+  }
 
   refresh(): void {
-    for (const c of this.headerComps) c.destroy?.();
-    this.headerComps = [];
-    for (const f of this.frameworkCleanups) f();
-    this.frameworkCleanups = [];
-    this.sortIndicators.clear();
-    this.headerCheckbox = null;
+    this.runCleanups();
 
     const layout = this.ctx.columnModel.getHeaderLayout();
     const headerHeight = this.ctx.options.get('headerHeight') ?? 36;
     const totalH = layout.depth * headerHeight;
     const widths = this.ctx.columnModel.getRegionWidths();
+    // aria-colindex follows the displayed column order across all regions (1-based).
+    const displayedAll = this.ctx.columnModel.getDisplayed().all;
+    const colIndexes = new Map<string, number>();
+    for (let i = 0; i < displayedAll.length; i++) colIndexes.set(displayedAll[i].colId, i + 1);
 
     const build = (container: HTMLElement, nodes: HeaderNode<TData>[], regionWidth: number) => {
       container.textContent = '';
       container.style.height = `${totalH}px`;
       container.style.width = `${regionWidth}px`;
+      // One role='row' wrapper per header level (aria-rowindex 1-based from top).
+      const rows: HTMLElement[] = [];
+      for (let lvl = 0; lvl < layout.depth; lvl++) {
+        const row = el('div', 'au-header-row', { role: 'row', 'aria-rowindex': String(lvl + 1) });
+        row.style.position = 'absolute';
+        row.style.left = '0';
+        row.style.top = `${lvl * headerHeight}px`;
+        row.style.width = '100%';
+        row.style.height = `${headerHeight}px`;
+        container.appendChild(row);
+        rows.push(row);
+      }
       const place = (node: HeaderNode<TData>, level: number) => {
         if (node.kind === 'col') {
           const col = node.column;
-          const cell = this.buildColumnHeaderCell(col, headerHeight, level, layout.depth);
-          container.appendChild(cell);
+          const cell = this.buildColumnHeaderCell(col, headerHeight, level, layout.depth, colIndexes);
+          rows[level].appendChild(cell);
         } else {
           const leaves = node.leafColumns.length > 0 ? node.leafColumns : [];
           if (leaves.length > 0) {
@@ -57,7 +89,7 @@ export class HeaderRenderer<TData> {
             const cell = el('div', 'au-header-cell au-header-group-cell', { role: 'columnheader' });
             cell.style.left = `${left}px`;
             cell.style.width = `${width}px`;
-            cell.style.top = `${level * headerHeight}px`;
+            cell.style.top = '0px';
             cell.style.height = `${headerHeight}px`;
             if (node.headerClass) {
               cell.className += ' ' + (Array.isArray(node.headerClass) ? node.headerClass.join(' ') : node.headerClass);
@@ -65,7 +97,7 @@ export class HeaderRenderer<TData> {
             const label = el('span', 'au-header-cell-text');
             label.textContent = node.headerName;
             cell.appendChild(label);
-            container.appendChild(cell);
+            rows[level].appendChild(cell);
           }
           for (const child of node.children) place(child, level + 1);
         }
@@ -84,11 +116,21 @@ export class HeaderRenderer<TData> {
     this.updateSortIndicators();
   }
 
+  /**
+   * colId → leaf header cell element (displayed order), rebuilt in refresh().
+   * The renderer's cheap geometry path uses this to update left/width without
+   * a full header rebuild.
+   */
+  getHeaderCellMap(): Map<string, HTMLElement> {
+    return this.headerCellMap;
+  }
+
   private buildColumnHeaderCell(
     col: Column<TData>,
     headerHeight: number,
     level: number,
     depth: number,
+    colIndexes: Map<string, number>,
   ): HTMLElement {
     const cell = el('div', 'au-header-cell', {
       role: 'columnheader',
@@ -101,15 +143,27 @@ export class HeaderRenderer<TData> {
     }
     cell.style.left = `${col.left}px`;
     cell.style.width = `${col.actualWidth}px`;
-    cell.style.top = `${level * headerHeight}px`;
+    // Cell lives inside its starting level's role='row' wrapper; a leaf cell
+    // spanning multiple visual levels keeps the increased height.
+    cell.style.top = '0px';
     cell.style.height = `${(depth - level) * headerHeight}px`;
     if (def.headerTooltip) cell.title = def.headerTooltip;
+    const colIndex = colIndexes.get(col.colId);
+    if (colIndex != null) cell.setAttribute('aria-colindex', String(colIndex));
+    const sortable = col.isSortable() && !col.isAutoGroupCol && col.colId !== 'au-selection-col';
+    cell.tabIndex = sortable ? 0 : -1;
+    this.headerCellMap.set(col.colId, cell);
 
     if (col.colId === 'au-selection-col') {
       const sel = this.ctx.options.get('rowSelection');
       const conf = typeof sel === 'string' ? { mode: sel } : sel;
       if (conf && conf.mode === 'multiRow' && conf.headerCheckbox !== false) {
-        const cb = el('input', 'au-checkbox', { type: 'checkbox', 'data-au-header-checkbox': '1' }) as HTMLInputElement;
+        const cb = el('input', 'au-checkbox', {
+          type: 'checkbox',
+          'data-au-header-checkbox': '1',
+          tabindex: '-1',
+          'aria-label': 'Select all rows',
+        }) as HTMLInputElement;
         cell.appendChild(cb);
         cell.style.justifyContent = 'center';
         this.headerCheckbox = cb;
@@ -147,12 +201,12 @@ export class HeaderRenderer<TData> {
       text.textContent = params.displayName;
       label.appendChild(text);
       cell.appendChild(label);
-      if (col.isSortable() && !col.isAutoGroupCol) {
+      if (sortable) {
         cell.className += ' au-sortable';
         cell.setAttribute('data-au-sort-col', col.colId);
         const ind = el('span', 'au-sort-indicator');
         label.appendChild(ind);
-        this.sortIndicators.set(col.colId, ind);
+        this.sortIndicators.set(col.colId, { ind, cell });
       }
     }
 
@@ -166,6 +220,33 @@ export class HeaderRenderer<TData> {
     }
     return cell;
   }
+
+  /** Delegated keyboard support: Enter/Space sort, ArrowLeft/Right roving focus. */
+  private onHeaderKeyDown = (e: KeyboardEvent): void => {
+    const target = e.target as Element | null;
+    const cell = target?.closest?.('.au-header-cell') as HTMLElement | null;
+    if (!cell || !this.els.header.contains(cell)) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      const colId = cell.getAttribute('data-au-sort-col');
+      if (!colId) return;
+      const col = this.ctx.columnModel.getColumn(colId);
+      if (!col) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.ctx.sort.progressSort(col, e.shiftKey, 'header');
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      const cells: HTMLElement[] = [];
+      for (const c of this.headerCellMap.values()) cells.push(c);
+      const idx = cells.indexOf(cell);
+      if (idx < 0) return;
+      const next = cells[idx + (e.key === 'ArrowRight' ? 1 : -1)];
+      if (next) {
+        e.preventDefault();
+        e.stopPropagation();
+        next.focus();
+      }
+    }
+  };
 
   private headerLabel(col: Column<TData>): string {
     let name = col.getHeaderName();
@@ -183,25 +264,27 @@ export class HeaderRenderer<TData> {
 
   updateSortIndicators(): void {
     const model = this.ctx.sort?.getSortModel() ?? [];
+    let sig = '';
+    for (let i = 0; i < model.length; i++) sig += `${model[i].colId}:${model[i].sort}:${i}|`;
+    if (sig === this.lastSortSignature) return;
+    this.lastSortSignature = sig;
     const multi = model.length > 1;
-    for (const [colId, ind] of this.sortIndicators) {
+    for (const [colId, entry] of this.sortIndicators) {
       const col = this.ctx.columnModel.getColumn(colId);
       const sort = col?.sort ?? null;
-      const cellEl = ind.closest('.au-header-cell');
       if (sort == null) {
-        ind.textContent = '';
-        cellEl?.setAttribute('aria-sort', 'none');
+        entry.ind.textContent = '';
+        entry.cell.setAttribute('aria-sort', 'none');
       } else {
         const arrow = sort === 'asc' ? '↑' : '↓';
         const idx = model.findIndex((m) => m.colId === colId);
-        ind.innerHTML = '';
-        ind.append(arrow);
+        entry.ind.textContent = arrow;
         if (multi && idx >= 0) {
           const order = el('span', 'au-sort-order');
           order.textContent = String(idx + 1);
-          ind.appendChild(order);
+          entry.ind.appendChild(order);
         }
-        cellEl?.setAttribute('aria-sort', sort === 'asc' ? 'ascending' : 'descending');
+        entry.cell.setAttribute('aria-sort', sort === 'asc' ? 'ascending' : 'descending');
       }
     }
   }
@@ -209,6 +292,8 @@ export class HeaderRenderer<TData> {
   updateHeaderCheckbox(): void {
     if (!this.headerCheckbox) return;
     const state = this.ctx.selection?.getHeaderState() ?? false;
+    if (state === this.lastHeaderCheckboxState) return;
+    this.lastHeaderCheckboxState = state;
     this.headerCheckbox.checked = state === true;
     this.headerCheckbox.indeterminate = state === 'indeterminate';
   }
@@ -231,7 +316,8 @@ export class HeaderRenderer<TData> {
         cell.style.width = `${col.actualWidth}px`;
         container.appendChild(cell);
         if (this.colHasFloating(col)) {
-          this.ctx.filters.mountFloatingFilter(cell, col);
+          const cleanup = this.ctx.filters.mountFloatingFilter(cell, col);
+          if (typeof cleanup === 'function') this.floatingCleanups.push(cleanup);
         }
       }
     };
@@ -254,10 +340,24 @@ export class HeaderRenderer<TData> {
     return def.floatingFilter === true || this.ctx.options.get('floatingFilter') === true;
   }
 
-  destroy(): void {
+  /** Tear down everything produced by the last build: comps, framework mounts,
+   * floating-filter mounts, and build-time caches. */
+  private runCleanups(): void {
     for (const c of this.headerComps) c.destroy?.();
-    for (const f of this.frameworkCleanups) f();
     this.headerComps = [];
+    for (const f of this.frameworkCleanups) f();
     this.frameworkCleanups = [];
+    for (const f of this.floatingCleanups) f();
+    this.floatingCleanups = [];
+    this.sortIndicators.clear();
+    this.headerCellMap.clear();
+    this.headerCheckbox = null;
+    this.lastSortSignature = null;
+    this.lastHeaderCheckboxState = null;
+  }
+
+  destroy(): void {
+    this.els.header.removeEventListener('keydown', this.onHeaderKeyDown);
+    this.runCleanups();
   }
 }

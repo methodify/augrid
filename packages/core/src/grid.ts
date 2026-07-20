@@ -92,6 +92,17 @@ export class Grid<TData = unknown> {
       if (typeof cb === 'function') cb(event);
     });
 
+    // enableCellChangeFlash: flash a cell when its value changes, when enabled
+    // grid-wide or on the changed column's colDef (colDef `false` opts out of
+    // the grid-wide setting).
+    ctx.events.addEventListener('cellValueChanged', (e) => {
+      const colFlash = e.colDef?.enableCellChangeFlash;
+      const enabled = colFlash === true || (ctx.options.is('enableCellChangeFlash') && colFlash !== false);
+      if (enabled && e.node?.id != null) {
+        ctx.renderer.flashCells(new Set([e.node.id]), new Set([e.colId]));
+      }
+    });
+
     this.wireOptionChanges();
 
     // Apply initial state before first data.
@@ -136,10 +147,13 @@ export class Grid<TData = unknown> {
     const ctx = this.ctx;
     const has = (k: keyof GridOptions<TData>) => keys.includes(k);
 
-    if (has('columnDefs')) {
+    if (has('columnDefs') || has('defaultColDef') || has('columnTypes')) {
       ctx.columnModel.setColumnDefs(ctx.options.get('columnDefs') ?? []);
       ctx.rowModel.refreshModel?.('group');
       ctx.renderer.markHeaderDirty();
+      // Column definition changes must invalidate already-rendered body cells
+      // (formatters/renderers/classes may all have changed).
+      ctx.renderer.refreshCells();
     }
     if (has('rowData')) {
       const data = ctx.options.get('rowData');

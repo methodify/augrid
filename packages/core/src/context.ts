@@ -109,8 +109,13 @@ export interface IFilterManager<TData = unknown> {
   createPredicate(): ((node: RowNode<TData>) => boolean) | null;
   /** Distinct set-filter values for a column. */
   getSetValues(colId: string): (string | null)[];
-  /** Mount a column's floating filter UI. */
-  mountFloatingFilter(container: HTMLElement, column: Column<TData>): void;
+  /**
+   * Mount a column's floating filter UI. Returns a cleanup function that
+   * unsubscribes event listeners, closes any open popup, and removes document
+   * listeners; the header renderer must invoke it before discarding the
+   * container (i.e. on every header refresh/destroy).
+   */
+  mountFloatingFilter(container: HTMLElement, column: Column<TData>): () => void;
   destroy(): void;
 }
 

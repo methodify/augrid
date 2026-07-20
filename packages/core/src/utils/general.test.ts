@@ -45,6 +45,48 @@ describe('getPath / setPath', () => {
     setPath(obj, 'a.b', 1);
     expect(getPath(obj, 'a.b')).toBe(1);
   });
+
+  it('setPath rejects __proto__ segments and leaves Object.prototype clean', () => {
+    try {
+      setPath({}, '__proto__.polluted', 'x');
+      expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+      expect(Object.prototype).not.toHaveProperty('polluted');
+      expect(Object.prototype.hasOwnProperty.call(Object.prototype, 'polluted')).toBe(false);
+    } finally {
+      delete (Object.prototype as unknown as Record<string, unknown>).polluted;
+    }
+  });
+
+  it('setPath rejects constructor/prototype segments anywhere in the path', () => {
+    try {
+      setPath({}, 'constructor.prototype.polluted', 'x');
+      setPath({}, 'a.constructor.polluted', 'x');
+      setPath({ a: {} }, 'a.__proto__.polluted', 'x');
+      expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+      expect(Object.prototype).not.toHaveProperty('polluted');
+    } finally {
+      delete (Object.prototype as unknown as Record<string, unknown>).polluted;
+    }
+    // Unsafe single-segment paths are a no-op too.
+    const obj: Record<string, unknown> = {};
+    setPath(obj, '__proto__', { polluted: true });
+    setPath(obj, 'prototype', 1);
+    setPath(obj, 'constructor', 1);
+    expect(Object.getPrototypeOf(obj)).toBe(Object.prototype);
+    expect(Object.keys(obj)).toEqual([]);
+  });
+
+  it('getPath returns undefined for unsafe segments', () => {
+    const obj = { a: { b: 1 } };
+    expect(getPath(obj, '__proto__')).toBeUndefined();
+    expect(getPath(obj, 'constructor')).toBeUndefined();
+    expect(getPath(obj, 'prototype')).toBeUndefined();
+    expect(getPath(obj, 'a.__proto__')).toBeUndefined();
+    expect(getPath(obj, 'constructor.prototype')).toBeUndefined();
+    expect(getPath(obj, 'a.constructor.name')).toBeUndefined();
+    // Safe paths still resolve.
+    expect(getPath(obj, 'a.b')).toBe(1);
+  });
 });
 
 describe('humanize', () => {

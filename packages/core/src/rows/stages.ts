@@ -6,6 +6,22 @@ import type { AggFuncParams, ColDef } from '../types/colDef';
 
 export const PIVOT_SEP = '\u001f';
 
+/**
+ * Separator for group-path strings (expansion persistence). A control char
+ * (like PIVOT_SEP) so ordinary key strings cannot collide with the joiner.
+ * Every segment is PREFIXED by the separator (path of ['USA','2020'] is
+ * SEP+'USA'+SEP+'2020'), so the root prefix is always present: empty-string
+ * keys and keys at different levels can never produce the same path (C8).
+ */
+export const GROUP_PATH_SEP = '\u001e';
+
+/** Build a group path from key segments: each segment prefixed by the sep. */
+export function joinGroupPath(segments: string[]): string {
+  let p = '';
+  for (const s of segments) p += GROUP_PATH_SEP + s;
+  return p;
+}
+
 export function pivotColId(keys: string[], valueColId: string): string {
   return `pivot${PIVOT_SEP}${keys.join(PIVOT_SEP)}${PIVOT_SEP}${valueColId}`;
 }
@@ -25,7 +41,8 @@ export interface GroupStageResult<TData> {
 export function runGroupStage<TData>(
   ctx: GridContext<TData>,
   leaves: RowNode<TData>[],
-  expandedPaths: Set<string> | null,
+  /** Per-path expansion overrides: path → expanded. Unset paths use defaults. (C34) */
+  expansionOverrides: ReadonlyMap<string, boolean> | null,
   defaultExpanded: number,
 ): GroupStageResult<TData> {
   const root = new RowNode<TData>(ctx, 'au-root');
@@ -54,9 +71,8 @@ export function runGroupStage<TData>(
 
   // Apply expansion state.
   for (const [path, node] of groupsByPath) {
-    if (expandedPaths && expandedPaths.has(path)) node.expanded = true;
-    else if (expandedPaths && expandedPaths.has('!' + path)) node.expanded = false;
-    else node.expanded = defaultExpanded === -1 || node.level < defaultExpanded;
+    const override = expansionOverrides?.get(path);
+    node.expanded = override !== undefined ? override : defaultExpanded === -1 || node.level < defaultExpanded;
   }
   return { root, groupsByPath };
 }
@@ -83,7 +99,8 @@ function buildGroups<TData>(
   }
   const children: RowNode<TData>[] = [];
   for (const [key, bucket] of buckets) {
-    const path = parentPath === '' ? key : `${parentPath}|${key}`;
+    // No empty-parent special case: every segment is SEP-prefixed (C8).
+    const path = `${parentPath}${GROUP_PATH_SEP}${key}`;
     const g = new RowNode<TData>(ctx, `row-group-${col.colId}-${path}`);
     g.group = true;
     g.key = key;
@@ -113,13 +130,14 @@ function buildTree<TData>(
   getDataPath: (data: TData) => string[],
   groupsByPath: Map<string, RowNode<TData>>,
 ): void {
-  // Path join must be collision-safe enough; '|' is the documented reserved char.
+  // Paths joined with GROUP_PATH_SEP (control char): collision-safe for
+  // ordinary keys, including empty strings and keys containing '|' (C8).
   const byPath = new Map<string, RowNode<TData>>();
   root.childrenAfterGroup = [];
 
   const ensureParent = (path: string[], upTo: number): RowNode<TData> => {
     if (upTo === 0) return root;
-    const key = path.slice(0, upTo).join('|');
+    const key = joinGroupPath(path.slice(0, upTo));
     let node = byPath.get(key);
     if (node) {
       // A data-backed row becoming a parent: give it a children array.
@@ -146,7 +164,7 @@ function buildTree<TData>(
   for (const leaf of leaves) {
     const path = getDataPath(leaf.data as TData);
     if (!path || path.length === 0) continue;
-    const key = path.join('|');
+    const key = joinGroupPath(path);
     leaf.key = path[path.length - 1];
     leaf.level = path.length - 1;
     leaf.__treePath = path;
@@ -174,7 +192,7 @@ function buildTree<TData>(
   for (const node of byPath.values()) {
     if (node.childrenAfterGroup && node.childrenAfterGroup.length > 0) {
       node.group = true;
-      if (node.__groupPath == null) node.__groupPath = (node.__treePath ?? []).join('|');
+      if (node.__groupPath == null) node.__groupPath = joinGroupPath(node.__treePath ?? []);
       groupsByPath.set(node.__groupPath, node);
     }
   }
@@ -418,13 +436,23 @@ export function runSortStage<TData>(
     return a.__sourceIndex - b.__sourceIndex;
   };
 
+  // C42: with no explicit sort, group levels honor initialGroupOrderComparator
+  // when provided (fallback: current key/insertion order).
+  const initialGroupOrder = ctx.options.get('initialGroupOrderComparator');
+
   const visit = (node: RowNode<TData>): void => {
     if (!node.childrenAfterFilter) {
       node.childrenAfterSort = undefined;
       return;
     }
     if (sortSpecs.length === 0) {
-      node.childrenAfterSort = node.childrenAfterFilter;
+      if (initialGroupOrder && node.childrenAfterFilter.some((c) => c.group)) {
+        node.childrenAfterSort = [...node.childrenAfterFilter].sort(
+          (a, b) => initialGroupOrder({ nodeA: a, nodeB: b }),
+        );
+      } else {
+        node.childrenAfterSort = node.childrenAfterFilter;
+      }
     } else {
       node.childrenAfterSort = [...node.childrenAfterFilter].sort(compare);
     }

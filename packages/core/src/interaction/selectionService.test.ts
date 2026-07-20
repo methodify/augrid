@@ -158,7 +158,7 @@ function setup(options: Partial<GridOptions<Row>> = {}) {
     isAnyFilterActive: () => false,
     createPredicate: () => null,
     getSetValues: () => [],
-    mountFloatingFilter: () => {},
+    mountFloatingFilter: () => () => {},
     destroy: () => {},
   } as IFilterManager<Row>;
   ctx.range = null;

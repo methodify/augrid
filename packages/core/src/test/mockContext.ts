@@ -144,7 +144,7 @@ function createStubFilters<TData>(): IFilterManager<TData> {
     isAnyFilterActive: () => false,
     createPredicate: () => null,
     getSetValues: () => [],
-    mountFloatingFilter: () => {},
+    mountFloatingFilter: () => () => {},
     destroy: () => {},
   };
 }

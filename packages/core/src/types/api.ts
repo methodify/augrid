@@ -38,6 +38,12 @@ export interface CsvExportParams {
   skipHeaders?: boolean;
   /** Apply valueFormatters (default true). */
   useFormattedValues?: boolean;
+  /**
+   * Disable neutralization of spreadsheet formula triggers (values starting
+   * with = + - @ or tab/CR are prefixed with ' by default to prevent CSV
+   * formula injection when opened in Excel/Sheets).
+   */
+  suppressFormulaEscaping?: boolean;
 }
 
 export interface GridApi<TData = unknown> {
