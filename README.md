@@ -50,7 +50,7 @@ import { AuGrid, reactComponent } from '@augrid/react';
 | | AG Grid | AuGrid |
 |---|---|---|
 | Pivoting, ranges, clipboard, grouping, tree data | Enterprise ($999+/dev/yr) | **Free, MIT** |
-| Core bundle (min+gzip) | ~250 kB+ | **41 kB** |
+| Core bundle (min+gzip) | ~250 kB+ | **47 kB** |
 | Runtime dependencies | — | **Zero** |
 | Server write-back editing | possible | **first-class** (`readOnlyEdit` + `cellEditRequest` on every edit/paste/fill) |
 | Web component | no | **`<au-grid>`** |
