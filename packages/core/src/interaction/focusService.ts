@@ -263,7 +263,7 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
         e.preventDefault();
         return;
       case 'ArrowLeft': {
-        if (!ctrl && !extend && focused.rowPinned == null) {
+        if (!ctrl && !extend && focused.rowPinned == null && this.isGroupHeaderCell(focused.colId)) {
           const node = ctx.rowModel.getRow(focused.rowIndex);
           if (node) {
             // ARIA treegrid: collapse an expanded group…
@@ -291,7 +291,7 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
         return;
       }
       case 'ArrowRight': {
-        if (!ctrl && !extend && focused.rowPinned == null) {
+        if (!ctrl && !extend && focused.rowPinned == null && this.isGroupHeaderCell(focused.colId)) {
           const node = ctx.rowModel.getRow(focused.rowIndex);
           if (node && this.isExpandableGroup(node) && !node.expanded) {
             node.setExpanded(true); // ARIA treegrid: expand a collapsed group
@@ -345,7 +345,9 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
           // Not editable: toggle expandable group rows (ARIA treegrid), else
           // Enter navigates vertically when enterNavigatesVertically is on.
           const node =
-            focused.rowPinned == null ? ctx.rowModel.getRow(focused.rowIndex) : undefined;
+            focused.rowPinned == null && this.isGroupHeaderCell(focused.colId)
+              ? ctx.rowModel.getRow(focused.rowIndex)
+              : undefined;
           if (node && this.isExpandableGroup(node)) {
             node.setExpanded(!node.expanded);
           } else if (ctx.options.get('enterNavigatesVertically') === true) {
@@ -434,6 +436,17 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
   /** Group row that can be expanded/collapsed (mirrors the renderer's chevron rule). */
   private isExpandableGroup(node: RowNode<TData>): boolean {
     return node.group && !node.footer && (node.childrenAfterFilter?.length ?? 0) > 0;
+  }
+
+  /**
+   * Treegrid expand/collapse key semantics apply ONLY on the group-header
+   * cell (the auto group column carrying the chevron, or the full-width row
+   * in 'groupRows' display). On every other cell of a group row, arrows and
+   * Enter behave like normal spreadsheet navigation/editing.
+   */
+  private isGroupHeaderCell(colId: string): boolean {
+    if (colId === 'au-fullwidth') return true;
+    return this.ctx.columnModel.getColumn(colId)?.isAutoGroupCol === true;
   }
 
   /* -------------------------------------------------------------- behaviors */

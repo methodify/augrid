@@ -291,6 +291,51 @@ describe('Grid composition root', () => {
     grid.destroy();
   });
 
+  it('arrow keys on non-header cells of a group row navigate; expand/collapse only on the group cell', () => {
+    const { grid, host } = mount({
+      columnDefs: [
+        { field: 'name' },
+        { field: 'country', rowGroup: true },
+        { field: 'gold', aggFunc: 'sum' },
+      ] satisfies ColDef<Row>[],
+      groupDefaultExpanded: -1,
+    });
+    const root = host.querySelector('.au-root')!;
+    const press = (key: string) =>
+      root.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    const group = grid.api.getDisplayedRowAtIndex(0)!;
+    expect(group.group).toBe(true);
+    expect(group.expanded).toBe(true);
+
+    // Focus the 'gold' value cell on the group row: ArrowLeft must NAVIGATE,
+    // not collapse (the user-reported nit).
+    grid.api.setFocusedCell(0, 'gold');
+    press('ArrowLeft');
+    expect(group.expanded).toBe(true); // no collapse
+    expect(grid.api.getFocusedCell()!.colId).toBe('name'); // moved left (past hidden 'country')
+
+    // Enter on a non-editable value cell of a group row must not toggle either.
+    grid.api.setFocusedCell(0, 'gold');
+    press('Enter');
+    expect(group.expanded).toBe(true);
+
+    // Leaf cell ArrowLeft navigates left, it does not jump to the parent row.
+    const leafIndex = 1; // first child under the expanded group
+    expect(grid.api.getDisplayedRowAtIndex(leafIndex)!.group).toBe(false);
+    grid.api.setFocusedCell(leafIndex, 'gold');
+    press('ArrowLeft');
+    expect(grid.api.getFocusedCell()!.rowIndex).toBe(leafIndex);
+    expect(grid.api.getFocusedCell()!.colId).toBe('name');
+
+    // On the GROUP-HEADER cell the treegrid semantics still apply.
+    grid.api.setFocusedCell(0, 'au-group-col');
+    press('ArrowLeft');
+    expect(group.expanded).toBe(false); // collapsed
+    press('ArrowRight');
+    expect(group.expanded).toBe(true); // re-expanded
+    grid.destroy();
+  });
+
   it('groups + aggregates through the full stack', () => {
     const { grid } = mount();
     grid.api.applyColumnState({ state: [{ colId: 'country', rowGroup: true }] });
