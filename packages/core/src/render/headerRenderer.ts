@@ -210,6 +210,18 @@ export class HeaderRenderer<TData> {
       }
     }
 
+    const menuSuppressed =
+      this.ctx.options.is('suppressHeaderMenuButton') || def.suppressHeaderMenuButton === true;
+    if (!menuSuppressed && this.ctx.columnMenu && !col.isAutoGroupCol && col.colId !== 'au-selection-col') {
+      const btn = el('span', 'au-header-menu-btn', {
+        'data-au-col-menu': col.colId,
+        role: 'button',
+        tabindex: '-1',
+        'aria-label': `Column menu for ${this.headerLabel(col)}`,
+      });
+      btn.textContent = '⋮';
+      cell.appendChild(btn);
+    }
     if (col.isResizable() && this.ctx.columnResize) {
       const grip = el('div', 'au-header-resize', { 'data-au-resize': col.colId });
       cell.appendChild(grip);

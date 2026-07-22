@@ -77,6 +77,7 @@ function seedRows(): PlanRow[] {
 const keysText = (parts: PivotKeyPart[]) => parts.map((p) => `${p.colId}=${p.key}`).join(', ');
 const getRowId = (p: { data: PlanRow }) => p.data.id;
 const DEFAULT_COL_DEF: ColDef<PlanRow> = { sortable: true, resizable: true };
+const SIDE_BAR = { panels: ['columns'] as ('columns' | 'filters')[] };
 
 export function PivotPlan({ theme }: PageProps) {
   const [pending, setPending] = useState(0);
@@ -224,6 +225,7 @@ export function PivotPlan({ theme }: PageProps) {
               enableCellChangeFlash={true}
               onCellEditRequest={onCellEditRequest}
               getContextMenuItems={getContextMenuItems}
+              sideBar={SIDE_BAR}
               theme={theme}
               onGridReady={(e) => {
                 apiRef.current = e.api as GridApi<PlanRow>;

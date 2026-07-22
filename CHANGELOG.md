@@ -24,6 +24,10 @@ theming, accessibility (ARIA grid/treegrid, full keyboard model).
   (clipboard, pin, expand/collapse, CSV export) and an app hook
   (`getContextMenuItems`) that receives `PivotCellContext` on pivot/group
   cells. See `docs/RECIPES.md` → "Context menu with app actions".
+- **Column menu, side bar, find-in-grid**: header ⋮ menus (sort/pin/autosize/
+  group/hide); `sideBar` option with a columns panel (visibility + row-group/
+  value/pivot drop zones) and a filters panel; `setFindText`/`findNext`
+  API with match highlighting. See `docs/RECIPES.md`.
 
 ### Known issues / migration notes
 

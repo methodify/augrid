@@ -19,6 +19,9 @@ import { RangeService } from './interaction/rangeService';
 import { EditingService } from './interaction/editingService';
 import { ClipboardService } from './interaction/clipboardService';
 import { ContextMenuService } from './interaction/contextMenuService';
+import { ColumnMenuService } from './interaction/columnMenuService';
+import { SideBarService } from './features/sideBar/sideBarService';
+import { FindService } from './features/findService';
 import { ColumnDragService } from './interaction/columnDragService';
 import { ColumnResizeService } from './interaction/columnResizeService';
 import { FilterManager } from './features/filters/filterManager';
@@ -76,11 +79,14 @@ export class Grid<TData = unknown> {
     ctx.range = cellSel ? new RangeService(ctx) : null;
     ctx.clipboard = new ClipboardService(ctx);
     ctx.contextMenu = new ContextMenuService(ctx);
+    ctx.columnMenu = new ColumnMenuService(ctx);
     ctx.undoRedo = ctx.options.is('undoRedoCellEditing') ? new UndoRedoService(ctx) : null;
     ctx.pagination = ctx.options.is('pagination') ? new PaginationService(ctx) : null;
     ctx.columnDrag = new ColumnDragService(ctx);
     ctx.columnResize = new ColumnResizeService(ctx);
     ctx.tooltips = new TooltipService(ctx);
+    ctx.sideBar = new SideBarService(ctx, ctx.renderer.getSideBarHost());
+    ctx.find = new FindService(ctx);
     ctx.frameworkAdapter = null;
 
     (ctx as unknown as { __destroyGrid: () => void }).__destroyGrid = () => this.destroy();
@@ -218,6 +224,13 @@ export class Grid<TData = unknown> {
     if (has('floatingFilter')) {
       ctx.renderer.markHeaderDirty();
     }
+    if (has('sideBar')) {
+      ctx.sideBar?.destroy();
+      ctx.sideBar = new SideBarService(ctx, ctx.renderer.getSideBarHost());
+    }
+    if (has('suppressHeaderMenuButton')) {
+      ctx.renderer.markHeaderDirty();
+    }
     ctx.scheduleRender();
   }
 
@@ -231,11 +244,14 @@ export class Grid<TData = unknown> {
       api: ctx.api,
       context: ctx.options.get('context'),
     });
+    ctx.find?.destroy();
+    ctx.sideBar?.destroy();
     ctx.tooltips?.destroy();
     ctx.columnResize?.destroy();
     ctx.columnDrag?.destroy();
     ctx.pagination?.destroy();
     ctx.undoRedo?.destroy();
+    ctx.columnMenu?.destroy();
     ctx.contextMenu?.destroy();
     ctx.clipboard.destroy();
     ctx.range?.destroy();

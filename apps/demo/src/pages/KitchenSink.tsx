@@ -39,6 +39,8 @@ export function KitchenSink({ theme }: PageProps) {
   const [rangeInfo, setRangeInfo] = useState('no cell range');
   const [editInfo, setEditInfo] = useState('no edits yet');
   const [scrollTo, setScrollTo] = useState('');
+  const [findText, setFindText] = useState('');
+  const [findInfo, setFindInfo] = useState('');
   const apiRef = useRef<GridApi<Row> | null>(null);
   const addedRef = useRef(0);
 
@@ -306,6 +308,22 @@ export function KitchenSink({ theme }: PageProps) {
           onKeyDown={(e) => e.key === 'Enter' && doScrollTo()}
         />
         <button onClick={doScrollTo}>Scroll to row</button>
+        <span className="sep" />
+        <input
+          style={{ width: 110 }}
+          placeholder="Find in grid…"
+          value={findText}
+          onChange={(e) => {
+            setFindText(e.target.value);
+            api()?.setFindText(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.shiftKey ? api()?.findPrevious() : api()?.findNext());
+          }}
+        />
+        <button onClick={() => api()?.findPrevious()}>◀</button>
+        <button onClick={() => api()?.findNext()}>▶</button>
+        {findInfo && <span>{findInfo}</span>}
       </div>
       <div className="demo-grid">
         <AuGrid<Row>
@@ -322,6 +340,14 @@ export function KitchenSink({ theme }: PageProps) {
           pinnedTopRowData={pinnedTop}
           quickFilterText={quick}
           groupDefaultExpanded={0}
+          sideBar={true}
+          onFindChanged={(e) =>
+            setFindInfo(
+              e.text === ''
+                ? ''
+                : `${e.activeIndex < 0 ? '–' : e.activeIndex + 1}/${e.totalMatches}`,
+            )
+          }
           theme={theme}
           onGridReady={(e) => {
             apiRef.current = e.api as GridApi<Row>;

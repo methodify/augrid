@@ -52,6 +52,8 @@ export class GridRenderer<TData = unknown> {
   private ePinnedBottomRight!: HTMLElement;
   private eOverlay!: HTMLElement;
   private ePaging!: HTMLElement;
+  private eMain!: HTMLElement;
+  private eSideBarHost!: HTMLElement;
   private eFullWidthWrap!: HTMLElement;
   private eFullWidthContainer!: HTMLElement;
 
@@ -115,7 +117,28 @@ export class GridRenderer<TData = unknown> {
     this.fullWidthBand = new FullWidthBand(ctx, this.eFullWidthContainer);
     this.wireEvents();
     this.observeSize();
+    // Structural column changes repaint the header — services mutate columns
+    // through the ColumnModel without going via the api layer. Width-only
+    // changes (columnResized) stay on the cheap geometry path.
+    for (const type of GridRenderer.HEADER_STRUCTURE_EVENTS) {
+      ctx.events.addEventListener(type, this.onColumnStructureChanged);
+    }
   }
+
+  private static readonly HEADER_STRUCTURE_EVENTS = [
+    'columnVisible',
+    'columnPinned',
+    'columnMoved',
+    'columnRowGroupChanged',
+    'columnPivotChanged',
+    'columnValueChanged',
+    'newColumnsLoaded',
+    'pivotModeChanged',
+  ] as const;
+
+  private onColumnStructureChanged = (): void => {
+    this.markHeaderDirty();
+  };
 
   private buildScaffold(): void {
     const r = this.eRoot;
@@ -176,7 +199,17 @@ export class GridRenderer<TData = unknown> {
     this.ePaging = el('div', 'au-paging');
     this.ePaging.style.display = 'none';
 
-    r.append(this.eHeader, this.eFloating, this.ePinnedTop, this.eBody, this.ePinnedBottom, this.eOverlay, this.ePaging);
+    // Main pane (vertical stack) beside the tool-panel side bar host.
+    this.eMain = el('div', 'au-main');
+    this.eMain.append(this.eHeader, this.eFloating, this.ePinnedTop, this.eBody, this.ePinnedBottom, this.eOverlay, this.ePaging);
+    this.eSideBarHost = el('div', 'au-sidebar-host');
+    this.eSideBarHost.style.display = 'none';
+    r.append(this.eMain, this.eSideBarHost);
+  }
+
+  /** Host element the SideBarService fills (display managed by the service). */
+  getSideBarHost(): HTMLElement {
+    return this.eSideBarHost;
   }
 
   /* ------------------------------------------------------------- observers */
@@ -337,7 +370,13 @@ export class GridRenderer<TData = unknown> {
 
   private onClick(e: MouseEvent): void {
     const target = e.target as HTMLElement;
-    // header interactions
+    // header interactions — the menu button sits inside sortable cells, so it
+    // must win over the sort handler.
+    const menuBtn = closestWithAttr(target, 'data-au-col-menu', this.eRoot);
+    if (menuBtn) {
+      this.ctx.columnMenu?.showForColumn(menuBtn.getAttribute('data-au-col-menu')!, menuBtn);
+      return;
+    }
     const headerSort = closestWithAttr(target, 'data-au-sort-col', this.eRoot);
     if (headerSort) {
       const colId = headerSort.getAttribute('data-au-sort-col')!;
@@ -958,6 +997,9 @@ export class GridRenderer<TData = unknown> {
 
   destroy(): void {
     this.destroyed = true;
+    for (const type of GridRenderer.HEADER_STRUCTURE_EVENTS) {
+      this.ctx.events.removeEventListener(type, this.onColumnStructureChanged);
+    }
     if (this.rafId != null && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(this.rafId);
     if (this.scrollEndTimer) clearTimeout(this.scrollEndTimer);
     this.resizeObserver?.disconnect();

@@ -176,6 +176,8 @@ export interface ColDef<TData = unknown> {
   /** Header label; defaults to a humanized field name. */
   headerName?: string;
   headerTooltip?: string;
+  /** Hide this column's header ⋮ menu button. */
+  suppressHeaderMenuButton?: boolean;
   /** Named column type(s) from GridOptions.columnTypes to merge in. */
   type?: string | string[];
 

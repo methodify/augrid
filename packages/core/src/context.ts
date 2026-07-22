@@ -115,6 +115,41 @@ export interface IContextMenuService<TData = unknown> {
   destroy(): void;
 }
 
+export interface IColumnMenuService<TData = unknown> {
+  /** Open the column menu anchored to a header element (the ⋮ button). */
+  showForColumn(colId: string, anchorEl: HTMLElement): boolean;
+  hideMenu(): void;
+  isOpen(): boolean;
+  destroy(): void;
+}
+
+export type ToolPanelId = 'columns' | 'filters';
+
+export interface ISideBarService<TData = unknown> {
+  setVisible(visible: boolean): void;
+  isVisible(): boolean;
+  openPanel(id: ToolPanelId): void;
+  closePanel(): void;
+  getOpenedPanel(): ToolPanelId | null;
+  destroy(): void;
+}
+
+export interface IFindService<TData = unknown> {
+  setText(text: string): void;
+  getText(): string;
+  /** Move the active match by ±1 (wrapping) and scroll/focus it. */
+  next(): void;
+  previous(): void;
+  clear(): void;
+  isActive(): boolean;
+  getMatchCount(): number;
+  /** 0-based index of the active match, -1 when none. */
+  getActiveIndex(): number;
+  /** Render flag for a body cell: 0 none, 1 match, 2 active match. */
+  getCellState(rowIndex: number, colId: string): 0 | 1 | 2;
+  destroy(): void;
+}
+
 export interface IFilterManager<TData = unknown> {
   getModel(): FilterModelMap;
   setModel(model: FilterModelMap | null, source?: string): void;
@@ -225,6 +260,9 @@ export interface GridContext<TData = unknown> {
   range: IRangeService<TData> | null;
   clipboard: IClipboardService<TData>;
   contextMenu: IContextMenuService<TData> | null;
+  columnMenu: IColumnMenuService<TData> | null;
+  sideBar: ISideBarService<TData> | null;
+  find: IFindService<TData> | null;
   undoRedo: IUndoRedoService<TData> | null;
   pagination: IPaginationService<TData> | null;
   columnDrag: IColumnDragService | null;

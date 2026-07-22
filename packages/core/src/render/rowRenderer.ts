@@ -19,6 +19,7 @@ class CellCtrl<TData> {
   private lastEditing = false;
   private lastFocused = false;
   private lastRangeFlags = -1;
+  private lastFindFlags = -1;
   private lastSelected: boolean | undefined = undefined;
   private lastColIndex = -1;
   private lastLeft = -1;
@@ -59,6 +60,8 @@ class CellCtrl<TData> {
     const focused =
       !!focus && focus.rowIndex === displayIndex && focus.colId === this.colId && focus.rowPinned === node.rowPinned;
     const rangeFlags = node.rowPinned == null && ctx.range ? ctx.range.getCellFlags(displayIndex, this.colId) : 0;
+    const findFlags =
+      node.rowPinned == null && ctx.find?.isActive() ? ctx.find.getCellState(displayIndex, this.colId) : 0;
     // Checkbox cells must track selection changes even without a version bump.
     const selected = this.colId === 'au-selection-col' ? node.isSelected() : undefined;
 
@@ -70,6 +73,7 @@ class CellCtrl<TData> {
       editing === this.lastEditing &&
       focused === this.lastFocused &&
       rangeFlags === this.lastRangeFlags &&
+      findFlags === this.lastFindFlags &&
       selected === this.lastSelected
     ) {
       return;
@@ -80,6 +84,7 @@ class CellCtrl<TData> {
     this.lastEditing = editing;
     this.lastFocused = focused;
     this.lastRangeFlags = rangeFlags;
+    this.lastFindFlags = findFlags;
     this.lastSelected = selected;
 
     // classes
@@ -93,6 +98,8 @@ class CellCtrl<TData> {
     if (rangeFlags & RANGE_RIGHT) cls += ' au-range-right';
     if (rangeFlags & RANGE_BOTTOM) cls += ' au-range-bottom';
     if (rangeFlags & RANGE_LEFT) cls += ' au-range-left';
+    if (findFlags === 1) cls += ' au-find-match';
+    else if (findFlags === 2) cls += ' au-find-match au-find-active';
     cls += this.userClasses(node, column, displayIndex);
     e.className = cls;
     this.applyUserStyle(node, column, displayIndex);

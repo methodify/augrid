@@ -46,6 +46,17 @@ export interface CellSelectionOptions {
   suppressMultiRanges?: boolean;
 }
 
+/* ----------------------------------------------------------------- side bar */
+
+export interface SideBarDef {
+  /** Panels to offer, in tab order (default: both). */
+  panels?: ('columns' | 'filters')[];
+  /** Panel open on grid creation (default: none — closed). */
+  defaultOpen?: 'columns' | 'filters' | null;
+  /** Which side the bar docks on (default 'right'). */
+  position?: 'left' | 'right';
+}
+
 /* ------------------------------------------------------------------ theming */
 
 export interface ThemeSpec {
@@ -189,6 +200,16 @@ export interface GridOptions<TData = unknown> extends GridOptionEventCallbacks<T
   processCellForClipboard?: (params: { value: unknown; node: IRowNode<TData>; colId: string }) => unknown;
   processCellFromClipboard?: (params: { value: string; node: IRowNode<TData>; colId: string }) => unknown;
   fillOperation?: (params: FillOperationParams<TData>) => unknown;
+
+  /* menus / side bar */
+  /** Hide all header ⋮ menu buttons (per-column: colDef.suppressHeaderMenuButton). */
+  suppressHeaderMenuButton?: boolean;
+  /**
+   * Tool panel side bar. true = columns + filters panels; a single panel name
+   * shows just that panel; the object form controls panels, the initially
+   * open panel, and which side it docks on.
+   */
+  sideBar?: boolean | 'columns' | 'filters' | SideBarDef;
 
   /* context menu */
   suppressContextMenu?: boolean;

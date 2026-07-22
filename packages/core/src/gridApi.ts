@@ -323,6 +323,42 @@ export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {
       ctx.pagination?.setPageSize(size);
     },
 
+    setSideBarVisible(visible) {
+      ctx.sideBar?.setVisible(visible);
+    },
+    isSideBarVisible() {
+      return ctx.sideBar?.isVisible() ?? false;
+    },
+    openToolPanel(id) {
+      ctx.sideBar?.openPanel(id);
+    },
+    closeToolPanel() {
+      ctx.sideBar?.closePanel();
+    },
+    getOpenedToolPanel() {
+      return ctx.sideBar?.getOpenedPanel() ?? null;
+    },
+
+    setFindText(text) {
+      ctx.find?.setText(text);
+    },
+    findNext() {
+      ctx.find?.next();
+    },
+    findPrevious() {
+      ctx.find?.previous();
+    },
+    clearFind() {
+      ctx.find?.clear();
+    },
+    getFindState() {
+      return {
+        text: ctx.find?.getText() ?? '',
+        totalMatches: ctx.find?.getMatchCount() ?? 0,
+        activeIndex: ctx.find?.getActiveIndex() ?? -1,
+      };
+    },
+
     showContextMenu(params) {
       const focused = ctx.focus.getFocusedCell();
       const rowIndex = params?.rowIndex ?? focused?.rowIndex;

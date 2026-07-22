@@ -150,6 +150,18 @@ export interface ContextMenuVisibleChangedEvent<TData = unknown> extends AuEvent
   source: 'ui' | 'api';
 }
 
+export interface ToolPanelVisibleChangedEvent<TData = unknown> extends AuEvent<TData> {
+  /** The now-open panel, or null when the side bar collapsed. */
+  open: 'columns' | 'filters' | null;
+}
+
+export interface FindChangedEvent<TData = unknown> extends AuEvent<TData> {
+  text: string;
+  totalMatches: number;
+  /** 0-based index of the active match, -1 when none. */
+  activeIndex: number;
+}
+
 /** All grid events, keyed by name. The single source of truth. */
 export interface GridEventMap<TData = unknown> {
   gridReady: AuEvent<TData>;
@@ -210,6 +222,8 @@ export interface GridEventMap<TData = unknown> {
   tooltipShow: TooltipEvent<TData>;
   tooltipHide: AuEvent<TData>;
   contextMenuVisibleChanged: ContextMenuVisibleChangedEvent<TData>;
+  toolPanelVisibleChanged: ToolPanelVisibleChangedEvent<TData>;
+  findChanged: FindChangedEvent<TData>;
 }
 
 export type GridEventName = keyof GridEventMap;

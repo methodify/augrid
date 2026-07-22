@@ -125,6 +125,47 @@ Notes:
 - `api.showContextMenu()` / `api.hideContextMenu()` drive it programmatically;
   `contextMenuVisibleChanged` fires on open/close.
 
+## Side bar: columns chooser, pivot config, filters
+
+```ts
+createGrid(el, {
+  sideBar: true,                                  // columns + filters panels
+  // or: sideBar: 'filters'
+  // or: sideBar: { panels: ['columns'], defaultOpen: 'columns', position: 'left' },
+});
+```
+
+The **columns panel** offers visibility checkboxes, a search box, and
+drag-and-drop zones for Row Groups, Values, and (in pivot mode) Column
+Labels — a user-driven pivot configurator over the same
+`setRowGroupColumns`/`setPivotColumns`/`setValueColumns` model the API uses.
+The **filters panel** mounts every filterable column's filter inline, with
+active indicators and per-column clear. Drive it programmatically with
+`api.openToolPanel('columns')`, `closeToolPanel()`, `setSideBarVisible()`;
+`toolPanelVisibleChanged` fires on open/close.
+
+Every column header also gets a ⋮ menu (sort, pin, autosize, group-by, hide,
+choose columns). Disable with `suppressHeaderMenuButton` (grid-wide or per
+colDef).
+
+## Find in grid
+
+Search what the user sees — formatted values across all displayed cells:
+
+```ts
+api.setFindText('nilsson');   // recompute + highlight all matches
+api.findNext();               // step active match, scrolls & focuses (wraps)
+api.findPrevious();
+api.getFindState();           // { text, totalMatches, activeIndex }
+api.clearFind();
+// event: findChanged fires on every change — drive a "3/41" counter from it.
+```
+
+Matches restyle via `.au-find-match` / `.au-find-active` (override the
+`--au-find-match-color` / `--au-find-active-color` vars). Matching is
+case-insensitive substring over formatted values; match sets recompute
+automatically on data/filter/sort/column changes while a search is live.
+
 ## Persisting user layout
 
 ```ts

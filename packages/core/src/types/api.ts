@@ -178,6 +178,22 @@ export interface GridApi<TData = unknown> {
   paginationGetPageSize(): number;
   paginationSetPageSize(size: number): void;
 
+  /* side bar / tool panels */
+  setSideBarVisible(visible: boolean): void;
+  isSideBarVisible(): boolean;
+  openToolPanel(id: 'columns' | 'filters'): void;
+  closeToolPanel(): void;
+  getOpenedToolPanel(): 'columns' | 'filters' | null;
+
+  /* find */
+  /** Set the find text; matches recompute and highlight ('' clears). */
+  setFindText(text: string): void;
+  /** Step the active match forward/backward (wraps; scrolls it into view). */
+  findNext(): void;
+  findPrevious(): void;
+  clearFind(): void;
+  getFindState(): { text: string; totalMatches: number; activeIndex: number };
+
   /* context menu */
   /**
    * Open the context menu anchored to a cell (defaults to the focused cell).

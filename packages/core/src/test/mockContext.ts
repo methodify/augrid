@@ -74,6 +74,9 @@ export function createMockContext<TData = unknown>(
     destroy: () => {},
   };
   ctx.contextMenu = null;
+  ctx.columnMenu = null;
+  ctx.sideBar = null;
+  ctx.find = null;
   ctx.undoRedo = null;
   ctx.pagination = null;
   ctx.columnDrag = null;
