@@ -57,12 +57,28 @@ describe('EditingService — editability gates', () => {
     svc.destroy();
   });
 
-  it('refuses secondary (pivot result) columns', () => {
+  it('secondary (pivot result) columns: editable per colDef, commits event-routed (AUG-6)', () => {
     const { ctx, svc } = setup();
     const col = ctx.columnModel.getColumn('name')!;
     col.secondary = true;
-    expect(svc.startEditing({ rowIndex: 0, colId: 'name' })).toBe(false);
-    expect(svc.commitValue(ctx.rowModel.getRow(0)!, 'name', 'X', 'edit')).toBe(false);
+    const groupNode = new RowNode<Data>(ctx);
+    groupNode.group = true;
+    groupNode.key = 'G';
+    groupNode.aggData = { name: 'agg' };
+
+    // Not editable → refused.
+    const prevEditable = col.colDef.editable;
+    col.colDef.editable = false;
+    expect(svc.commitValue(groupNode, 'name', 'X', 'edit')).toBe(false);
+
+    // Editable → allowed, but routed as cellEditRequest (never a local write).
+    col.colDef.editable = true;
+    const requests: unknown[] = [];
+    ctx.events.addEventListener('cellEditRequest', (e) => requests.push(e));
+    expect(svc.commitValue(groupNode, 'name', 'X', 'edit')).toBe(true);
+    expect(requests).toHaveLength(1);
+
+    col.colDef.editable = prevEditable;
     col.secondary = false;
     svc.destroy();
   });

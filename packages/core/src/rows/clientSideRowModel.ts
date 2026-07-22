@@ -321,16 +321,25 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
       valueCols.map((vc) => {
         const headerBase = vc.getHeaderName();
         const aggName = typeof vc.aggFunc === 'string' ? vc.aggFunc : 'agg';
+        const src = vc.getColDef();
         const colDef: ColDef<TData> = {
           colId: pivotColId(keys, vc.colId),
           headerName: suppressAgg || valueCols.length === 1 ? headerBase : `${aggName}(${headerBase})`,
           width: vc.width,
           minWidth: vc.minWidth,
-          valueFormatter: vc.getColDef().valueFormatter,
-          cellClass: vc.getColDef().cellClass,
-          cellRenderer: vc.getColDef().cellRenderer,
+          valueFormatter: src.valueFormatter,
+          cellClass: src.cellClass,
+          cellRenderer: src.cellRenderer,
           sortable: true,
-          editable: false,
+          // Editability and editor config inherit from the source value
+          // column; commits to pivot cells are event-routed (cellEditRequest
+          // with intersection context), never local mutations.
+          editable: src.editable,
+          cellEditor: src.cellEditor,
+          cellEditorParams: src.cellEditorParams,
+          cellEditorPopup: src.cellEditorPopup,
+          singleClickEdit: src.singleClickEdit,
+          valueParser: src.valueParser,
         };
         return { keys, valueCol: vc, colDef };
       }),

@@ -5,6 +5,7 @@ import { KitchenSink } from './pages/KitchenSink';
 import { WriteBack } from './pages/WriteBack';
 import { Infinite } from './pages/Infinite';
 import { TreePivot } from './pages/TreePivot';
+import { PivotPlan } from './pages/PivotPlan';
 import { Benchmark } from './pages/Benchmark';
 
 export interface PageProps {
@@ -16,6 +17,7 @@ const PAGES: { hash: string; label: string; Comp: (props: PageProps) => ReactNod
   { hash: 'writeback', label: 'Write-Back', Comp: WriteBack },
   { hash: 'infinite', label: 'Infinite', Comp: Infinite },
   { hash: 'treepivot', label: 'Tree & Pivot', Comp: TreePivot },
+  { hash: 'pivotplan', label: 'Pivot Plan', Comp: PivotPlan },
   { hash: 'benchmark', label: 'Benchmark', Comp: Benchmark },
 ];
 

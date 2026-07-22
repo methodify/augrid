@@ -2,6 +2,7 @@ import type { GridContext } from '../context';
 import type { Column } from '../columns/column';
 import type { RowNode } from '../rows/rowNode';
 import { getPath, setPath, toDisplayString } from '../utils/general';
+import { buildPivotCellContext, isAggregateTarget } from './pivotContext';
 
 /**
  * The single read/write funnel for cell values:
@@ -136,9 +137,14 @@ export class ValueService<TData = unknown> {
       newValue,
       value: newValue,
       source,
+      pivot: buildPivotCellContext(this.ctx, node, column) ?? undefined,
     };
 
-    if (this.ctx.options.is('readOnlyEdit')) {
+    // Aggregate cells (pivot results, group-row value cells, group headers)
+    // have no single backing field: commits to them are ALWAYS event-routed —
+    // regardless of readOnlyEdit — and never mutate data locally. The app
+    // applies the change and feeds truth back via applyTransaction/setRowData.
+    if (isAggregateTarget(node, column) || this.ctx.options.is('readOnlyEdit')) {
       this.ctx.events.dispatch({ ...base, type: 'cellEditRequest' });
       return true;
     }

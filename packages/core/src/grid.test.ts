@@ -155,6 +155,142 @@ describe('Grid composition root', () => {
     grid.destroy();
   });
 
+  it('editable pivot cell: typed edit is event-routed with intersection context (AUG-6)', () => {
+    interface PRow {
+      item: string;
+      store: string;
+      onHand: number;
+      alloc: number;
+    }
+    const rows: PRow[] = [
+      { item: 'Shirt', store: 'S1', onHand: 10, alloc: 1 },
+      { item: 'Shirt', store: 'S2', onHand: 20, alloc: 2 },
+      { item: 'Pants', store: 'S1', onHand: 30, alloc: 3 },
+    ];
+    const requests: import('./types/events').CellEditRequestEvent<PRow>[] = [];
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const grid = new Grid<PRow>(host, {
+      columnDefs: [
+        { field: 'item', rowGroup: true },
+        { field: 'store', pivot: true },
+        { field: 'onHand', aggFunc: 'sum' },
+        { field: 'alloc', aggFunc: 'sum', editable: true },
+      ],
+      rowData: rows,
+      pivotMode: true,
+      getRowId: (p) => `${p.data.item}-${p.data.store}`,
+      onCellEditRequest: (e) => requests.push(e),
+    });
+    const ctx = grid.getContext();
+    ctx.renderer.setViewportSizeForTesting(1000, 400);
+    ctx.renderer.renderNow();
+
+    // Shirt group row, alloc column under store S1.
+    const shirt = grid.api.getDisplayedRowAtIndex(0)!;
+    expect(shirt.key).toBe('Shirt');
+    const allocS1 = grid.api
+      .getPivotResultColumns()
+      .find((c) => {
+        const pc = grid.api.getPivotCellContext(shirt, c.getColId());
+        return pc?.valueColId === 'alloc' && pc.pivotKeys[0]?.key === 'S1';
+      })!;
+    expect(allocS1).toBeTruthy();
+
+    // Read-only value column (onHand) refuses editing entirely.
+    const onHandS1 = grid.api
+      .getPivotResultColumns()
+      .find((c) => grid.api.getPivotCellContext(shirt, c.getColId())?.valueColId === 'onHand')!;
+    ctx.editing.startEditing({ rowIndex: 0, colId: onHandS1.getColId() });
+    expect(ctx.editing.isEditing()).toBe(false);
+
+    // Editable alloc cell: full editor lifecycle → cellEditRequest, no mutation.
+    expect(ctx.editing.startEditing({ rowIndex: 0, colId: allocS1.getColId() })).toBe(true);
+    ctx.renderer.renderNow(); // mounts the editor
+    const input = host.querySelector('.au-cell-inline-editing input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    input.value = '42';
+    ctx.editing.stopEditing(false);
+
+    expect(requests).toHaveLength(1);
+    const req = requests[0];
+    expect(req.newValue).toBe(42); // number-parsed via inherited cellDataType
+    expect(req.pivot!.rowKeys).toEqual([{ colId: 'item', key: 'Shirt' }]);
+    expect(req.pivot!.pivotKeys).toEqual([{ colId: 'store', key: 'S1' }]);
+    expect(req.pivot!.valueColId).toBe('alloc');
+    expect(req.pivot!.getLeafRows()).toEqual([rows[0]]);
+    // Data untouched; aggregate unchanged.
+    expect(rows[0].alloc).toBe(1);
+    expect(shirt.aggData![allocS1.getColId()]).toBe(1);
+
+    // Paste path routes identically (single funnel).
+    ctx.editing.commitValue(
+      shirt as never,
+      allocS1.getColId(),
+      '7',
+      'paste',
+      true,
+    );
+    expect(requests).toHaveLength(2);
+    expect(requests[1].source).toBe('paste');
+    expect(requests[1].newValue).toBe(7);
+    grid.destroy();
+  });
+
+  it('grouped (non-pivot) editable aggregate cell routes with empty pivotKeys (AUG-6)', () => {
+    const requests: import('./types/events').CellEditRequestEvent<Row>[] = [];
+    const { grid } = mount({
+      columnDefs: [
+        { field: 'name' },
+        { field: 'country', rowGroup: true },
+        { field: 'gold', aggFunc: 'sum', editable: true },
+      ] satisfies ColDef<Row>[],
+      onCellEditRequest: (e: import('./types/events').CellEditRequestEvent<Row>) =>
+        requests.push(e),
+    });
+    const group = grid.api.getDisplayedRowAtIndex(0)!;
+    expect(group.group).toBe(true);
+    const before = group.aggData!.gold;
+    grid.getContext().editing.commitValue(group as never, 'gold', '99', 'edit', true);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].pivot!.pivotKeys).toEqual([]);
+    expect(requests[0].pivot!.rowKeys[0].colId).toBe('country');
+    expect(group.aggData!.gold).toBe(before); // no local mutation
+    // Leaf-row editing still writes locally (readOnlyEdit off).
+    grid.api.setRowNodeExpanded(group, true);
+    const leaf = grid.api.getDisplayedRowAtIndex(1)!;
+    expect(leaf.group).toBe(false);
+    leaf.setDataValue('gold', 55, 'edit');
+    expect(leaf.data!.gold).toBe(55);
+    grid.destroy();
+  });
+
+  it('editable callback on aggregate cells receives pivot context (AUG-6)', () => {
+    const seen: unknown[] = [];
+    const { grid } = mount({
+      columnDefs: [
+        { field: 'name' },
+        { field: 'country', rowGroup: true },
+        {
+          field: 'gold',
+          aggFunc: 'sum',
+          editable: (p: import('./types/colDef').EditableCallbackParams<Row>) => {
+            seen.push(p.pivot);
+            return p.pivot != null && p.pivot.level === 0;
+          },
+        },
+      ] satisfies ColDef<Row>[],
+    });
+    const group = grid.api.getDisplayedRowAtIndex(0)!;
+    const ok = grid.getContext().editing.startEditing({ rowIndex: 0, colId: 'gold' });
+    expect(ok).toBe(true);
+    expect(seen.length).toBeGreaterThan(0);
+    expect((seen[0] as { rowKeys: unknown[] }).rowKeys).toHaveLength(1);
+    grid.getContext().editing.stopEditing(true);
+    void group;
+    grid.destroy();
+  });
+
   it('groups + aggregates through the full stack', () => {
     const { grid } = mount();
     grid.api.applyColumnState({ state: [{ colId: 'country', rowGroup: true }] });

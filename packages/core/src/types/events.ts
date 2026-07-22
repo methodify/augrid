@@ -4,6 +4,7 @@ import type { IColumn } from './column';
 import type { ColDef } from './colDef';
 import type { FilterModelMap } from './filter';
 import type { GridApi } from './api';
+import type { PivotCellContext } from './pivot';
 
 export interface AuEvent<TData = unknown> {
   type: string;
@@ -35,6 +36,11 @@ export interface CellValueChangedEvent<TData = unknown> extends CellEvent<TData>
   newValue: unknown;
   /** 'edit' | 'paste' | 'fill' | 'undo' | 'redo' | 'api' | custom */
   source: string;
+  /**
+   * Intersection coordinates when the cell has group/pivot context (aggregate
+   * cells always; leaf cells under grouping). See PivotCellContext.
+   */
+  pivot?: PivotCellContext<TData>;
 }
 
 /** Fired instead of mutating when readOnlyEdit is on. */

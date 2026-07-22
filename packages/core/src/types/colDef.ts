@@ -2,6 +2,7 @@ import type { PinnedPosition, SortDirection } from './base';
 import type { IRowNode } from './rowNode';
 import type { IColumn } from './column';
 import type { GridApi } from './api';
+import type { PivotCellContext } from './pivot';
 
 /* ------------------------------------------------------------------ params */
 
@@ -41,7 +42,15 @@ export interface ValueParserParams<TData = unknown> extends CellParams<TData> {
   newValue: unknown;
 }
 
-export interface EditableCallbackParams<TData = unknown> extends CellParams<TData> {}
+export interface EditableCallbackParams<TData = unknown> extends CellParams<TData> {
+  /**
+   * Intersection coordinates when deciding editability of an aggregate cell
+   * (pivot result / group-row value / group header). Lets policies like
+   * "editable only at the deepest level" or "only rows in the user's purview"
+   * be expressed per cell.
+   */
+  pivot?: PivotCellContext<TData>;
+}
 
 export interface CellClassParams<TData = unknown> extends CellParams<TData> {
   value: unknown;

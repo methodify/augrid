@@ -12,6 +12,7 @@ import type { IRowNode } from './rowNode';
 import type { FilterModel, FilterModelMap } from './filter';
 import type { GridEventListener, GridEventName } from './events';
 import type { GridOptions } from './gridOptions';
+import type { PivotCellContext } from './pivot';
 
 export interface RowDataTransaction<TData = unknown> {
   add?: TData[];
@@ -187,4 +188,14 @@ export interface GridApi<TData = unknown> {
 
   /* pivot */
   isPivotMode(): boolean;
+  /**
+   * Intersection coordinates (row keys × pivot keys × source field) for a
+   * cell, for use in renderers, tooltips, context menus, and click handling.
+   * Null when the cell carries no group/pivot context or the position is
+   * invalid. See PivotCellContext.
+   */
+  getPivotCellContext(
+    row: number | IRowNode<TData>,
+    colId: string,
+  ): PivotCellContext<TData> | null;
 }

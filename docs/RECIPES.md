@@ -49,30 +49,48 @@ socket.on('tick', (rows) => api.applyTransactionAsync({ update: rows }));
 
 ## Editable pivot ("matrix sheet")
 
-Pivot cells are aggregates, so direct editing is off by default. The matrix-
-sheet experience (each pivot cell backed by exactly one source record) is:
+Pivot write-back is first-class. Mark a value column `editable` and every pivot
+cell it generates becomes a write cell; all other measures stay read-only.
+Commits to aggregate cells are ALWAYS event-routed (regardless of
+`readOnlyEdit`) — the grid never mutates an aggregate. The event carries the
+full intersection:
 
 ```ts
 const opts = {
   pivotMode: true,
   columnDefs: [
-    { field: 'account', rowGroup: true },
-    { field: 'month', pivot: true },
-    { field: 'amount', aggFunc: 'sum' },
+    { field: 'item',  rowGroup: true },
+    { field: 'color', rowGroup: true },
+    { field: 'market', pivot: true },
+    { field: 'store',  pivot: true },
+    { field: 'onHand', aggFunc: 'sum' },                    // read-only measure
+    { field: 'alloc',  aggFunc: 'sum', editable: true },    // WRITE measure
+    { field: 'reason', aggFunc: 'first', editable: true },  // write ATTRIBUTE
   ],
-  cellSelection: true,
-  onCellClicked: (e) => {
-    if (!e.column.isSecondary()) return;
-    // Resolve the source records behind this pivot cell and open your editor:
-    // pivot colIds encode the key path; use e.node (the group row) + the
-    // column's pivot keys to look up source rows in your store.
+  onCellEditRequest: async (e) => {
+    const pc = e.pivot!; // PivotCellContext
+    // pc.rowKeys   → [{colId:'item',key:'Crew Tee'},{colId:'color',key:'Black'}]
+    // pc.pivotKeys → [{colId:'market',key:'East'},{colId:'store',key:'BOS-02'}]
+    // pc.valueColId → 'alloc';  pc.level → group depth of the edited row
+    const sourceRows = pc.getLeafRows();       // rows at this intersection
+    const updated = await server.writeAllocation(pc, e.newValue, sourceRows);
+    api.applyTransaction({ update: updated }); // truth flows back, cell recomputes
   },
 };
 ```
 
-For true two-way matrix editing, keep the grid in `readOnlyEdit` and translate
-`cellEditRequest` on secondary columns into writes against the resolved source
-record (unbalanced cells → your allocation rules), then `applyTransaction`.
+Notes:
+- Edits above the deepest level reach you with ALL matching source rows —
+  spreading/allocation policy is yours (`getLeafRows()` gives you the targets).
+- Per-cell policy (purview, level restrictions): make `editable` a callback —
+  it receives `params.pivot` with the same context.
+- The "reason code" pattern: any editable per-row attribute is a value column
+  with `aggFunc: 'first'` — it renders per row group and round-trips like any
+  write measure.
+- `api.getPivotCellContext(rowIndexOrNode, colId)` resolves the same context
+  anywhere (cell renderers, context menus, drill-through).
+- Paste and fill-handle drags on write cells route through the same event.
+- The demo's "Pivot Plan" page is this recipe running end-to-end.
 
 ## Persisting user layout
 

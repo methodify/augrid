@@ -4,6 +4,7 @@ import type { CellEditorComp, CellEditorParams } from '../types/colDef';
 import type { IColumn } from '../types/column';
 import type { Column } from '../columns/column';
 import type { RowNode } from '../rows/rowNode';
+import { buildPivotCellContext, isAggregateTarget } from '../values/pivotContext';
 import {
   CheckboxCellEditor,
   DateCellEditor,
@@ -450,10 +451,11 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
   /* ------------------------------------------------------------ editability */
 
   private isCellEditable(node: RowNode<TData>, column: Column<TData>): boolean {
-    if (column.secondary) return false; // pivot result columns are read-only
+    if (node.footer) return false; // total rows are never editable
     if (!column.isEditable()) return false;
     const colDef = column.getColDef();
     const editable = colDef.editable;
+    const aggregate = isAggregateTarget(node, column);
     if (typeof editable === 'function') {
       return !!editable({
         api: this.ctx.api,
@@ -462,10 +464,12 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
         node,
         column: column as unknown as IColumn<TData>,
         colDef,
+        pivot: aggregate ? (buildPivotCellContext(this.ctx, node, column) ?? undefined) : undefined,
       });
     }
-    // Group rows without backing data are not editable unless a callback says so.
-    if (node.group && node.data == null) return false;
+    // Group rows: only aggregate cells (pivot results, value columns, group
+    // headers) are editable — commits to them are event-routed, never local.
+    if (node.group && node.data == null && !aggregate) return false;
     return true;
   }
 

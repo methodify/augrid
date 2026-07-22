@@ -219,3 +219,9 @@ h2.demo-h2 { margin: 4px 0 0; font-size: 15px; }
 body.demo-dark .demo-results th, body.demo-dark .demo-results td { border-color: #3a4150; }
 
 .demo-results th { background: rgba(37, 99, 235, 0.12); }
+
+/* PivotPlan: write-enabled cells */
+.plan-write-cell {
+  background: color-mix(in srgb, var(--au-accent-color, #2563eb) 8%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--au-accent-color, #2563eb) 45%, transparent);
+}

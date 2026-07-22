@@ -11,6 +11,7 @@ export type * from './types/filter';
 export type * from './types/events';
 export type * from './types/gridOptions';
 export type * from './types/api';
+export type * from './types/pivot';
 export { isColGroupDef } from './types/colDef';
 
 export type { GridContext, FrameworkAdapter } from './context';

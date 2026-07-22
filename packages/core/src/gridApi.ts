@@ -8,6 +8,7 @@ import type { ClientSideRowModel } from './rows/clientSideRowModel';
 import type { FilterModel, FilterModelMap } from './types/filter';
 import type { GridEventListener, GridEventName } from './types/events';
 import { exportCsv, downloadCsv } from './features/csvExport';
+import { buildPivotCellContext } from './values/pivotContext';
 
 /** Concrete GridApi implementation — thin delegation over the context. */
 export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {
@@ -368,6 +369,13 @@ export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {
 
     isPivotMode() {
       return ctx.columnModel.isPivotMode();
+    },
+    getPivotCellContext(row, colId) {
+      const node =
+        typeof row === 'number' ? ctx.rowModel.getRow(row) : (row as RowNode<TData> | undefined);
+      const column = ctx.columnModel.getColumn(colId);
+      if (!node || !column) return null;
+      return buildPivotCellContext(ctx, node, column);
     },
   };
   return api;
