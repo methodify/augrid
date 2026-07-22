@@ -284,6 +284,39 @@ export const BASE_CSS = `
   box-shadow: 0 6px 24px rgba(0,0,0,.14);
 }
 
+/* context menu */
+.au-menu {
+  position: absolute;
+  z-index: 30;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--au-background-color, #fff);
+  border: 1px solid var(--au-border-color, #dde2eb);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.14);
+  font-size: var(--au-font-size, 13px);
+  user-select: none;
+  outline: none;
+}
+.au-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+  white-space: nowrap;
+}
+.au-menu-item:hover, .au-menu-item:focus { background: var(--au-row-hover-color, #f1f4f9); }
+.au-menu-item[aria-disabled="true"] { opacity: .45; cursor: default; }
+.au-menu-item[aria-disabled="true"]:hover { background: none; }
+.au-menu-icon { flex: none; width: 16px; text-align: center; }
+.au-menu-name { flex: 1 1 auto; }
+.au-menu-shortcut { flex: none; opacity: .55; font-size: 11px; }
+.au-menu-arrow { flex: none; opacity: .6; }
+.au-menu-sep { height: 1px; margin: 4px 2px; background: var(--au-border-color, #dde2eb); }
+
 /* column drag ghost & drop indicator */
 .au-drag-ghost {
   position: fixed;

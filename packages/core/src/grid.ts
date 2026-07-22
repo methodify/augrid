@@ -18,6 +18,7 @@ import { SelectionService } from './interaction/selectionService';
 import { RangeService } from './interaction/rangeService';
 import { EditingService } from './interaction/editingService';
 import { ClipboardService } from './interaction/clipboardService';
+import { ContextMenuService } from './interaction/contextMenuService';
 import { ColumnDragService } from './interaction/columnDragService';
 import { ColumnResizeService } from './interaction/columnResizeService';
 import { FilterManager } from './features/filters/filterManager';
@@ -74,6 +75,7 @@ export class Grid<TData = unknown> {
     const cellSel = ctx.options.get('cellSelection');
     ctx.range = cellSel ? new RangeService(ctx) : null;
     ctx.clipboard = new ClipboardService(ctx);
+    ctx.contextMenu = new ContextMenuService(ctx);
     ctx.undoRedo = ctx.options.is('undoRedoCellEditing') ? new UndoRedoService(ctx) : null;
     ctx.pagination = ctx.options.is('pagination') ? new PaginationService(ctx) : null;
     ctx.columnDrag = new ColumnDragService(ctx);
@@ -234,6 +236,7 @@ export class Grid<TData = unknown> {
     ctx.columnDrag?.destroy();
     ctx.pagination?.destroy();
     ctx.undoRedo?.destroy();
+    ctx.contextMenu?.destroy();
     ctx.clipboard.destroy();
     ctx.range?.destroy();
     ctx.editing.destroy();

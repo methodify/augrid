@@ -92,6 +92,39 @@ Notes:
 - Paste and fill-handle drags on write cells route through the same event.
 - The demo's "Pivot Plan" page is this recipe running end-to-end.
 
+## Context menu with app actions
+
+Right-click (and Shift+F10 / the ContextMenu key) opens a built-in menu:
+clipboard, pin, expand/collapse (when grouping), CSV export. Mix your own
+items in with `getContextMenuItems` — on pivot/group cells the params carry
+the same `PivotCellContext` as write-back events, so intersection actions
+(drill-through, allocate, comment) are one callback away:
+
+```ts
+const opts = {
+  getContextMenuItems: (p: GetContextMenuItemsParams<Row>) => {
+    const items: (DefaultMenuItem | MenuItemDef<Row>)[] = [];
+    if (p.pivot) {
+      items.push({
+        name: `Drill through (${p.pivot.getLeafRows().length} rows)`,
+        icon: '🔎',
+        action: () => openDrillThrough(p.pivot!),
+      }, 'separator');
+    }
+    return [...items, ...p.defaultItems];   // defaults: copy/paste/pin/export…
+  },
+};
+```
+
+Notes:
+- Item `name`/`icon` render via textContent (no HTML). `subMenu` nests;
+  `disabled`, `checked`, `shortcut`, `cssClass` cover the usual affordances.
+- Return `[]` to let the browser's own menu through for that cell;
+  `suppressContextMenu` disables the grid menu entirely; Ctrl+right-click
+  shows the browser menu unless `allowContextMenuWithControlKey`.
+- `api.showContextMenu()` / `api.hideContextMenu()` drive it programmatically;
+  `contextMenuVisibleChanged` fires on open/close.
+
 ## Persisting user layout
 
 ```ts

@@ -101,6 +101,20 @@ export interface IClipboardService<TData = unknown> {
   destroy(): void;
 }
 
+export interface IContextMenuService<TData = unknown> {
+  /**
+   * Open from a native contextmenu event. Returns false when the grid menu
+   * should not show (suppressed, Ctrl held without allowContextMenuWithControlKey,
+   * or the resolved item list is empty) — the browser menu falls through.
+   */
+  showMenuForEvent(pos: CellPosition, e: MouseEvent): boolean;
+  /** Open anchored to a cell rect (keyboard Shift+F10 / ContextMenu key, API). */
+  showMenuAtCell(pos: CellPosition, source?: 'ui' | 'api'): boolean;
+  hideMenu(): void;
+  isOpen(): boolean;
+  destroy(): void;
+}
+
 export interface IFilterManager<TData = unknown> {
   getModel(): FilterModelMap;
   setModel(model: FilterModelMap | null, source?: string): void;
@@ -210,6 +224,7 @@ export interface GridContext<TData = unknown> {
   /** Null when cellSelection is off. */
   range: IRangeService<TData> | null;
   clipboard: IClipboardService<TData>;
+  contextMenu: IContextMenuService<TData> | null;
   undoRedo: IUndoRedoService<TData> | null;
   pagination: IPaginationService<TData> | null;
   columnDrag: IColumnDragService | null;

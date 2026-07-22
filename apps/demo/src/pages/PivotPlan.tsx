@@ -1,6 +1,15 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AuGrid } from '@augrid/react';
-import type { CellEditRequestEvent, ColDef, GridApi, PivotKeyPart } from '@augrid/core';
+import type {
+  CellEditRequestEvent,
+  ColDef,
+  DefaultMenuItem,
+  GetContextMenuItemsParams,
+  GridApi,
+  MenuItemDef,
+  PivotCellContext,
+  PivotKeyPart,
+} from '@augrid/core';
 import type { PageProps } from '../App';
 
 /**
@@ -81,15 +90,11 @@ export function PivotPlan({ theme }: PageProps) {
     setLog((l) => [...l.slice(-199), `[${ts}] ${msg}`]);
   }, []);
 
-  const onCellEditRequest = useCallback(
-    (e: CellEditRequestEvent<PlanRow>) => {
-      const pc = e.pivot;
-      if (!pc) return;
-      const field = pc.valueColId as keyof PlanRow;
-      if (field !== 'alloc' && field !== 'reason') return;
+  const applyWrite = useCallback(
+    (field: 'alloc' | 'reason', newValue: unknown, pc: PivotCellContext<PlanRow>) => {
       const targets = pc.getLeafRows();
       appendLog(
-        `request  ${String(field)} = ${String(e.newValue)}  @ [${keysText(pc.rowKeys)}] × [${
+        `request  ${field} = ${String(newValue)}  @ [${keysText(pc.rowKeys)}] × [${
           pc.pivotKeys.length ? keysText(pc.pivotKeys) : 'all columns'
         }] → ${targets.length} source row(s)`,
       );
@@ -101,9 +106,9 @@ export function PivotPlan({ theme }: PageProps) {
           if (field === 'alloc') {
             // Deepest intersection = 1 row (direct write); higher levels
             // spread the entered total evenly — the APP owns this policy.
-            copy.alloc = Math.round((Number(e.newValue) / targets.length) * 100) / 100;
+            copy.alloc = Math.round((Number(newValue) / targets.length) * 100) / 100;
           } else {
-            copy.reason = String(e.newValue ?? '');
+            copy.reason = String(newValue ?? '');
           }
           return copy;
         });
@@ -111,13 +116,54 @@ export function PivotPlan({ theme }: PageProps) {
         setPending((p) => p - 1);
         appendLog(
           `applied  ${updated.length} row(s)` +
-            (field === 'alloc' && targets.length > 1
-              ? ` (spread ${String(e.newValue)} evenly)`
-              : ''),
+            (field === 'alloc' && targets.length > 1 ? ` (spread ${String(newValue)} evenly)` : ''),
         );
       }, 300);
     },
     [appendLog],
+  );
+
+  const onCellEditRequest = useCallback(
+    (e: CellEditRequestEvent<PlanRow>) => {
+      const pc = e.pivot;
+      if (!pc) return;
+      const field = pc.valueColId;
+      if (field === 'alloc' || field === 'reason') applyWrite(field, e.newValue, pc);
+    },
+    [applyWrite],
+  );
+
+  // Right-click: intersection-aware actions ahead of the built-in items.
+  const getContextMenuItems = useCallback(
+    (p: GetContextMenuItemsParams<PlanRow>): (DefaultMenuItem | MenuItemDef<PlanRow>)[] => {
+      const pc = p.pivot;
+      if (!pc) return p.defaultItems;
+      const n = pc.getLeafRows().length;
+      return [
+        {
+          name: `Drill through (${n} source row${n === 1 ? '' : 's'})`,
+          icon: '🔎',
+          action: () =>
+            appendLog(
+              `drill    [${keysText(pc.rowKeys)}] × [${
+                pc.pivotKeys.length ? keysText(pc.pivotKeys) : 'all columns'
+              }] → ${pc
+                .getLeafRows()
+                .map((r) => r.id)
+                .join('; ')}`,
+            ),
+        },
+        {
+          name: 'Clear allocation here',
+          icon: '⌫',
+          disabled: pc.valueColId !== 'alloc',
+          action: () => applyWrite('alloc', 0, pc),
+        },
+        'separator',
+        ...p.defaultItems,
+      ];
+    },
+    [appendLog, applyWrite],
   );
 
   const columnDefs = useMemo<ColDef<PlanRow>[]>(
@@ -160,7 +206,8 @@ export function PivotPlan({ theme }: PageProps) {
         <p className="demo-note">
           Editable pivot: ALLOCATION and Reason are write fields (highlighted); other measures
           are read-only. Edits at store level write one source row; edits at market/item level
-          are spread by the app. Double-click a highlighted cell.
+          are spread by the app. Double-click a highlighted cell, or right-click any cell for
+          intersection-aware actions (drill-through, clear).
         </p>
       </div>
       <div className="demo-split">
@@ -176,6 +223,7 @@ export function PivotPlan({ theme }: PageProps) {
               suppressAggFuncInHeader={true}
               enableCellChangeFlash={true}
               onCellEditRequest={onCellEditRequest}
+              getContextMenuItems={getContextMenuItems}
               theme={theme}
               onGridReady={(e) => {
                 apiRef.current = e.api as GridApi<PlanRow>;

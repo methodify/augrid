@@ -1,6 +1,7 @@
 import type { Density, GridState, RowPinnedPosition } from './base';
 import type { AggFunc, CellRendererDef, ColDef, ColDefOrGroup } from './colDef';
 import type { GridOptionEventCallbacks } from './events';
+import type { GetContextMenuItems } from './menu';
 import type { IRowNode } from './rowNode';
 import type { GridApi } from './api';
 
@@ -188,6 +189,16 @@ export interface GridOptions<TData = unknown> extends GridOptionEventCallbacks<T
   processCellForClipboard?: (params: { value: unknown; node: IRowNode<TData>; colId: string }) => unknown;
   processCellFromClipboard?: (params: { value: string; node: IRowNode<TData>; colId: string }) => unknown;
   fillOperation?: (params: FillOperationParams<TData>) => unknown;
+
+  /* context menu */
+  suppressContextMenu?: boolean;
+  /**
+   * Show the grid context menu even when Ctrl is held during right-click.
+   * Default: Ctrl+right-click falls through to the browser menu.
+   */
+  allowContextMenuWithControlKey?: boolean;
+  /** Customize menu items per cell; return names and/or MenuItemDefs. */
+  getContextMenuItems?: GetContextMenuItems<TData>;
 
   /* keyboard */
   navigateToNextCell?: (params: {

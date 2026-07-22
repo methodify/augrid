@@ -405,6 +405,11 @@ export class GridRenderer<TData = unknown> {
     const hit = this.cellFromEvent(e);
     if (!hit || !hit.column) return;
     this.ctx.events.dispatch({ ...this.cellEventPayload(hit, e), type: 'cellContextMenu' });
+    const shown = this.ctx.contextMenu?.showMenuForEvent(
+      { rowIndex: hit.rowIndex, colId: hit.column.colId, rowPinned: hit.rowPinned },
+      e,
+    );
+    if (shown) e.preventDefault(); // suppressed/empty menus fall through to the browser menu
   }
 
   private onMouseOver(e: MouseEvent): void {

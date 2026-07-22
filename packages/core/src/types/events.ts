@@ -144,6 +144,12 @@ export interface TooltipEvent<TData = unknown> extends AuEvent<TData> {
   cell: CellPosition | null;
 }
 
+export interface ContextMenuVisibleChangedEvent<TData = unknown> extends AuEvent<TData> {
+  visible: boolean;
+  /** What opened/closed it: 'ui' (mouse/keyboard) or 'api'. */
+  source: 'ui' | 'api';
+}
+
 /** All grid events, keyed by name. The single source of truth. */
 export interface GridEventMap<TData = unknown> {
   gridReady: AuEvent<TData>;
@@ -203,6 +209,7 @@ export interface GridEventMap<TData = unknown> {
   stateUpdated: StateUpdatedEvent<TData>;
   tooltipShow: TooltipEvent<TData>;
   tooltipHide: AuEvent<TData>;
+  contextMenuVisibleChanged: ContextMenuVisibleChangedEvent<TData>;
 }
 
 export type GridEventName = keyof GridEventMap;

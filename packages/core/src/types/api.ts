@@ -178,6 +178,14 @@ export interface GridApi<TData = unknown> {
   paginationGetPageSize(): number;
   paginationSetPageSize(size: number): void;
 
+  /* context menu */
+  /**
+   * Open the context menu anchored to a cell (defaults to the focused cell).
+   * Returns false when nothing opened (no cell, suppressed, or empty menu).
+   */
+  showContextMenu(params?: { rowIndex?: number; colId?: string }): boolean;
+  hideContextMenu(): void;
+
   /* export */
   exportDataAsCsv(params?: CsvExportParams): void;
   getDataAsCsv(params?: CsvExportParams): string;

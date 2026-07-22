@@ -323,6 +323,19 @@ export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {
       ctx.pagination?.setPageSize(size);
     },
 
+    showContextMenu(params) {
+      const focused = ctx.focus.getFocusedCell();
+      const rowIndex = params?.rowIndex ?? focused?.rowIndex;
+      const colId = params?.colId ?? focused?.colId;
+      if (rowIndex == null || colId == null) return false;
+      return (
+        ctx.contextMenu?.showMenuAtCell({ rowIndex, colId, rowPinned: null }, 'api') ?? false
+      );
+    },
+    hideContextMenu() {
+      ctx.contextMenu?.hideMenu();
+    },
+
     exportDataAsCsv(params?: CsvExportParams) {
       downloadCsv(exportCsv(ctx, params), params?.fileName ?? 'export.csv');
     },

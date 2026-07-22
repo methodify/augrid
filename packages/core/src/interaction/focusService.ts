@@ -362,6 +362,12 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
         this.handleClear();
         e.preventDefault();
         return;
+      case 'ContextMenu':
+        if (ctx.contextMenu?.showMenuAtCell(focused)) e.preventDefault();
+        return;
+      case 'F10':
+        if (e.shiftKey && ctx.contextMenu?.showMenuAtCell(focused)) e.preventDefault();
+        return;
       case ' ': {
         if (ctx.options.get('rowSelection') != null && focused.rowPinned == null) {
           const node = ctx.rowModel.getRow(focused.rowIndex);
