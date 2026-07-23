@@ -3,6 +3,15 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.1.2 — 2026-07-24
+
+- Fix: numeric columns now right-align (cells, headers, inline editor input).
+  The alignment rule targeted the flex cell container, but the value span
+  flex-grows to fill the cell, so numbers rendered left-aligned everywhere.
+  Reported by mosaic-ui. `cellDataType` inference is unchanged — columns with
+  numeric first-row values get this automatically; declare
+  `cellDataType: 'number'` to force it.
+
 ## 0.1.1 — 2026-07-23
 
 First **externally consumable** release: built `@augrid/core` and `@augrid/react`

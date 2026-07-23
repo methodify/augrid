@@ -259,6 +259,11 @@ export const BASE_CSS = `
 }
 .au-cell-value { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
 .au-cell.au-cell-number, .au-header-cell.au-cell-number .au-header-cell-label { justify-content: flex-end; }
+/* The value span flex-grows to fill the cell, so container justify-content
+   alone can't right-align numbers — the text inside must align too. Same for
+   inline editor inputs, so numbers don't jump left while editing. */
+.au-cell.au-cell-number .au-cell-value { text-align: right; }
+.au-cell.au-cell-number .au-editor-input { text-align: right; }
 .au-cell.au-cell-wrap { white-space: normal; align-items: flex-start; padding-top: 4px; padding-bottom: 4px; }
 .au-cell-focus {
   outline: none;

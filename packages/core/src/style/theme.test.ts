@@ -95,3 +95,14 @@ describe('applyTheme', () => {
     expect(el2.style.getPropertyValue('width')).toBe('10px');
   });
 });
+
+describe('BASE_CSS number alignment', () => {
+  it('right-aligns number cells at the value span, not just the flex container', async () => {
+    // Regression (mosaic-ui report): .au-cell-value flex-grows to fill the
+    // cell, so justify-content on .au-cell-number alone is a no-op — the
+    // span's text-align must carry the alignment (and the inline editor's).
+    const { BASE_CSS } = await import('./baseStyles.js');
+    expect(BASE_CSS).toContain('.au-cell.au-cell-number .au-cell-value { text-align: right; }');
+    expect(BASE_CSS).toContain('.au-cell.au-cell-number .au-editor-input { text-align: right; }');
+  });
+});
