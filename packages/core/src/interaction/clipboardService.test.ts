@@ -164,6 +164,38 @@ describe('ClipboardService.cut', () => {
     expect(spy).toHaveBeenCalledWith(n1, 'make', null, 'cut');
     expect(spy).toHaveBeenCalledWith(n1, 'price', null, 'cut');
   });
+
+  it('range cut through the REAL editability gate: copies all cells, clears only editable ones', async () => {
+    const { ctx } = (() => {
+      const r = createMockContext<Car>({
+        columnDefs: [
+          { field: 'make', editable: true },
+          { field: 'model' }, // read-only
+          { field: 'price' }, // read-only
+        ],
+        // fresh copies: this test REALLY mutates rows (no commitValue spy)
+        rowData: rowData.map((row) => ({ ...row })),
+      });
+      return { ctx: r.ctx, start: r.start(), _: undefined };
+    })();
+    const { EditingService } = await import('./editingService');
+    ctx.editing = new EditingService<Car>(ctx);
+    const clipboard = new ClipboardService<Car>(ctx);
+    ctx.clipboard = clipboard;
+    ctx.range = rangeStub([{ startRowIndex: 0, endRowIndex: 1, colIds: ['make', 'model', 'price'] }]);
+
+    // the serialized block includes read-only values…
+    expect(clipboard.getCopyText()).toBe('Toyota\tCelica\t35000\nFord\tMondeo\t32000');
+    clipboard.cut();
+    const r0 = ctx.rowModel.getRow(0)!.data!;
+    const r1 = ctx.rowModel.getRow(1)!.data!;
+    // …but only the editable column was cleared.
+    expect(r0.make).toBeNull();
+    expect(r1.make).toBeNull();
+    expect(r0.model).toBe('Celica');
+    expect(r0.price).toBe(35000);
+    ctx.editing.destroy();
+  });
 });
 
 describe('ClipboardService.paste', () => {

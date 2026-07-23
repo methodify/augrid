@@ -83,8 +83,8 @@ export function KitchenSink({ theme }: PageProps) {
         cellEditorParams: { values: COUNTRIES },
         minWidth: 140,
       },
-      { field: 'sport', filter: 'text', minWidth: 120 },
-      { field: 'year', filter: 'number', width: 100 },
+      { field: 'sport', filter: 'text', editable: true, minWidth: 120 },
+      { field: 'year', filter: 'number', editable: true, cellEditor: 'number', width: 100 },
       {
         field: 'date',
         filter: 'date',

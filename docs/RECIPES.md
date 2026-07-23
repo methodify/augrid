@@ -31,6 +31,11 @@ const api = createGrid(el, {
 ```
 
 Notes:
+- EVERY mutation path — typing, paste, fill handle, cut, Delete — runs
+  through the same editability gate: cells that aren't `editable` are
+  silently skipped, never mutated. A cut/paste swept across a mixed range
+  changes only the editable cells (copy still captures the whole block).
+  If you want read-only cells visually distinct, style them via `cellClass`.
 - Batch rapid edits server-side; the grid will happily emit many requests
   during a paste. Collect them and `applyTransaction({ update })` once.
 - `validateEdit` runs before the request fires — reject bad input locally.
