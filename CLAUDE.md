@@ -14,6 +14,11 @@ performance rules) before changing core.
 
 ## Hard rules
 
+- Push to origin after landing a feature/fix. External consumers (e.g. mosaic-ui)
+  track the remote and file issues against what they can see — unpushed work
+  doesn't exist for them. Keep README/PRODUCT.md scope claims in sync with what
+  actually shipped (a consumer read "not built now" and filed for an existing feature).
+
 - Core has ZERO runtime dependencies. Never add one.
 - Strict TS; no `any` in public types (internal casts allowed sparingly).
 - Render path: no layout reads, no per-cell listeners (delegate at containers), no

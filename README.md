@@ -111,8 +111,11 @@ loops.
 
 ## Status & roadmap
 
-v0.1 implements the full v1 scope in `docs/PRODUCT.md`. Roadmap (v1.x): server-side row
-model with lazy group expansion, Excel export, master/detail, column menu + sidebar tool
-panels, context menu, row drag, find-in-grid, cell spanning, Angular/Vue/Svelte wrappers.
+v0.1 implements the full v1 scope in `docs/PRODUCT.md`, plus (post-v1, in main — see
+CHANGELOG.md): pivot write-back with intersection-keyed `cellEditRequest`, context menu,
+header column menus, side-bar tool panels (columns chooser with group/value/pivot drop
+zones; filters panel), and find-in-grid. Roadmap (v1.x): server-side row model with lazy
+group expansion, Excel export, master/detail, row drag, cell spanning,
+Angular/Vue/Svelte wrappers.
 
 MIT — see LICENSE.

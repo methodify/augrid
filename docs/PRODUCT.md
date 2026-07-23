@@ -104,12 +104,30 @@ props, React component cell renderers/editors rendered via portals, stable API r
 
 **Pagination**: client-side pagination as a display mode over the pipeline output.
 
+### Shipped post-v1 (in main, see CHANGELOG)
+
+**Pivot write-back**: editable pivot/aggregate cells — commits are always event-routed
+(`cellEditRequest` with `PivotCellContext`: rowKeys × pivotKeys × valueColId +
+`getLeafRows()`); `api.getPivotCellContext()`.
+
+**Context menu**: right-click / Shift+F10 with built-in items (clipboard, pin,
+expand/collapse, CSV export) and the `getContextMenuItems` hook (receives
+`PivotCellContext` on aggregate cells).
+
+**Column menu**: header ⋮ button — sort, pin, autosize, group-by, hide, choose columns.
+
+**Side bar / tool panels** (`sideBar` option): columns panel (search, show/hide
+checkboxes, Row Groups / Values / Column Labels drag-drop zones) and filters panel
+(every column filter inline, active indicators). `openToolPanel()` API.
+
+**Find-in-grid**: `setFindText`/`findNext`/`findPrevious` over formatted values with
+match highlighting and a `findChanged` event.
+
 ### v1.x roadmap (documented, not built now)
 
 Server-side row model with lazy group expansion; Excel export (xlsx); master/detail rows;
-row dragging (managed + to external targets); column menu & filter tool panel / sidebar;
-status bar; context menu framework; cell spanning; find-in-grid; integrated charts; Angular,
-Vue, Svelte wrappers; RTL; localization bundles.
+row dragging (managed + to external targets); status bar; cell spanning; integrated
+charts; Angular, Vue, Svelte wrappers; RTL; localization bundles.
 
 ## Quality bars (v1 exit criteria)
 
