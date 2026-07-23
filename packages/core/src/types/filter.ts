@@ -1,6 +1,6 @@
-import type { IRowNode } from './rowNode';
-import type { IColumn } from './column';
-import type { GridApi } from './api';
+import type { IRowNode } from './rowNode.js';
+import type { IColumn } from './column.js';
+import type { GridApi } from './api.js';
 
 /* Filter models are plain serializable objects — the single source of truth
  * for filter state (no live filter-instance API). */

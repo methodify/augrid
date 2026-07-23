@@ -1,4 +1,4 @@
-import type { CellEditorComp, CellEditorParams, ProvidedCellEditor } from '../types/colDef';
+import type { CellEditorComp, CellEditorParams, ProvidedCellEditor } from '../types/colDef.js';
 
 /**
  * Provided cell editors. All are plain DOM components with no event listeners:

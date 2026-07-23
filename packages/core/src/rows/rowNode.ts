@@ -1,9 +1,9 @@
-import type { IRowNode } from '../types/rowNode';
-import type { RowPinnedPosition } from '../types/base';
-import type { GridContext } from '../context';
+import type { IRowNode } from '../types/rowNode.js';
+import type { RowPinnedPosition } from '../types/base.js';
+import type { GridContext } from '../context.js';
 // Circular with stages.ts is safe: both sides use each other only inside
 // function bodies, never during module initialization.
-import { joinGroupPath } from './stages';
+import { joinGroupPath } from './stages.js';
 
 let nodeIdSeq = 0;
 

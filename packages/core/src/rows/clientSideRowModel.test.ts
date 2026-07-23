@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import type { ClientSideRowModel } from './clientSideRowModel';
-import type { RowNode } from './rowNode';
-import { joinGroupPath } from './stages';
+import { createMockContext } from '../test/mockContext.js';
+import type { ClientSideRowModel } from './clientSideRowModel.js';
+import type { RowNode } from './rowNode.js';
+import { joinGroupPath } from './stages.js';
 
 interface Row {
   id: string;

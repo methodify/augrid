@@ -1,6 +1,6 @@
-import { BASE_CSS } from './baseStyles';
-import type { ThemeSpec } from '../types/gridOptions';
-import { THEME_CSS, DARK_PARAMS, LIGHT_PARAMS } from './themes';
+import { BASE_CSS } from './baseStyles.js';
+import type { ThemeSpec } from '../types/gridOptions.js';
+import { THEME_CSS, DARK_PARAMS, LIGHT_PARAMS } from './themes.js';
 
 const injectedDocs = new WeakSet<Document | ShadowRoot>();
 

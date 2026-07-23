@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createMockContext } from '../test/mockContext';
-import { InfiniteRowModel } from './infiniteRowModel';
-import type { Datasource, GetRowsParams, GridOptions } from '../types/gridOptions';
+import { createMockContext } from '../test/mockContext.js';
+import { InfiniteRowModel } from './infiniteRowModel.js';
+import type { Datasource, GetRowsParams, GridOptions } from '../types/gridOptions.js';
 
 interface Row {
   id: number;

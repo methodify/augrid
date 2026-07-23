@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { FocusService } from './focusService';
-import type { GridContext, IRangeService } from '../context';
-import type { GridOptions } from '../types/gridOptions';
-import type { CellFocusedEvent } from '../types/events';
-import type { CellPosition, CellRange } from '../types/base';
+import { FocusService } from './focusService.js';
+import type { GridContext, IRangeService } from '../context.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import type { CellFocusedEvent } from '../types/events.js';
+import type { CellPosition, CellRange } from '../types/base.js';
 
-import { createMockContext } from '../test/mockContext';
+import { createMockContext } from '../test/mockContext.js';
 
 interface Row {
   a: number;

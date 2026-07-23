@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import type { HeaderGroupNode } from './columnModel';
+import { createMockContext } from '../test/mockContext.js';
+import type { HeaderGroupNode } from './columnModel.js';
 
 interface Row {
   name: string;

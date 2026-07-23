@@ -4,15 +4,15 @@
  * services + renderer. Tests for a service replace the relevant stub with the
  * real class (assign onto ctx before calling start()).
  */
-import type { GridContext, IFilterManager, ISortController } from '../context';
-import type { GridOptions } from '../types/gridOptions';
-import { OptionsService } from '../options';
-import { EventService } from '../events/eventService';
-import { ValueService } from '../values/valueService';
-import { ColumnModel } from '../columns/columnModel';
-import { ClientSideRowModel } from '../rows/clientSideRowModel';
-import { createGridApi } from '../gridApi';
-import type { SortModelItem } from '../types/base';
+import type { GridContext, IFilterManager, ISortController } from '../context.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import { OptionsService } from '../options.js';
+import { EventService } from '../events/eventService.js';
+import { ValueService } from '../values/valueService.js';
+import { ColumnModel } from '../columns/columnModel.js';
+import { ClientSideRowModel } from '../rows/clientSideRowModel.js';
+import { createGridApi } from '../gridApi.js';
+import type { SortModelItem } from '../types/base.js';
 
 export interface MockContextResult<TData> {
   ctx: GridContext<TData>;

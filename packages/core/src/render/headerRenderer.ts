@@ -1,8 +1,8 @@
-import type { GridContext } from '../context';
-import type { Column } from '../columns/column';
-import type { HeaderNode } from '../columns/columnModel';
-import { el } from '../utils/dom';
-import type { HeaderComp, HeaderParams } from '../types/colDef';
+import type { GridContext } from '../context.js';
+import type { Column } from '../columns/column.js';
+import type { HeaderNode } from '../columns/columnModel.js';
+import { el } from '../utils/dom.js';
+import type { HeaderComp, HeaderParams } from '../types/colDef.js';
 
 interface SortIndicatorEntry {
   ind: HTMLElement;

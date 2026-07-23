@@ -1,8 +1,8 @@
-import type { PinnedPosition, SortDirection } from './base';
-import type { IRowNode } from './rowNode';
-import type { IColumn } from './column';
-import type { GridApi } from './api';
-import type { PivotCellContext } from './pivot';
+import type { PinnedPosition, SortDirection } from './base.js';
+import type { IRowNode } from './rowNode.js';
+import type { IColumn } from './column.js';
+import type { GridApi } from './api.js';
+import type { PivotCellContext } from './pivot.js';
 
 /* ------------------------------------------------------------------ params */
 

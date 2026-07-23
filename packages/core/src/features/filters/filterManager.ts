@@ -4,18 +4,18 @@
  * row predicate (column filters + quick filter + external filter) consumed by
  * the client-side row model's filter stage.
  */
-import type { GridContext, IFilterManager } from '../../context';
-import type { Column } from '../../columns/column';
-import type { RowNode } from '../../rows/rowNode';
+import type { GridContext, IFilterManager } from '../../context.js';
+import type { Column } from '../../columns/column.js';
+import type { RowNode } from '../../rows/rowNode.js';
 import type {
   FilterComp,
   FilterModel,
   FilterModelMap,
-} from '../../types/filter';
-import type { IRowNode } from '../../types/rowNode';
-import { buildDatePredicate, buildNumberPredicate, buildTextPredicate } from './simpleFilters';
-import { buildSetPredicate, collectSetValues } from './setFilter';
-import { mountFloatingFilter } from './floatingFilters';
+} from '../../types/filter.js';
+import type { IRowNode } from '../../types/rowNode.js';
+import { buildDatePredicate, buildNumberPredicate, buildTextPredicate } from './simpleFilters.js';
+import { buildSetPredicate, collectSetValues } from './setFilter.js';
+import { mountFloatingFilter } from './floatingFilters.js';
 
 export type ProvidedFilterKind = 'text' | 'number' | 'date' | 'set';
 export type FilterKind = ProvidedFilterKind | 'custom' | null;
@@ -211,7 +211,7 @@ export class FilterManager<TData = unknown> implements IFilterManager<TData> {
       context: this.ctx.options.get('context'),
       // Column implements IColumn; cast bridges the kernel's known
       // getAggFunc signature variance between the two.
-      column: column as unknown as import('../../types/column').IColumn<TData>,
+      column: column as unknown as import('../../types/column.js').IColumn<TData>,
       colId,
       getValue: (node: IRowNode<TData>) => this.ctx.values.getValue(node as RowNode<TData>, column),
       onModelChange: (model: unknown | null) => {

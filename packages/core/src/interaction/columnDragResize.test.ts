@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createMockContext } from '../test/mockContext';
-import { ColumnResizeService } from './columnResizeService';
+import { createMockContext } from '../test/mockContext.js';
+import { ColumnResizeService } from './columnResizeService.js';
 import {
   ColumnDragService,
   computeDropTarget,
   computeIndicatorX,
   type RegionGeom,
-} from './columnDragService';
+} from './columnDragService.js';
 
 interface Row {
   a?: number;

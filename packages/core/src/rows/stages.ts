@@ -1,8 +1,8 @@
-import type { GridContext } from '../context';
-import type { Column } from '../columns/column';
-import { RowNode } from './rowNode';
-import { defaultCompare, toDisplayString } from '../utils/general';
-import type { AggFuncParams, ColDef } from '../types/colDef';
+import type { GridContext } from '../context.js';
+import type { Column } from '../columns/column.js';
+import { RowNode } from './rowNode.js';
+import { defaultCompare, toDisplayString } from '../utils/general.js';
+import type { AggFuncParams, ColDef } from '../types/colDef.js';
 
 export const PIVOT_SEP = '\u001f';
 

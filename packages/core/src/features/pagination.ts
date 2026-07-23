@@ -1,5 +1,5 @@
-import type { GridContext, IPaginationService } from '../context';
-import { clamp } from '../utils/general';
+import type { GridContext, IPaginationService } from '../context.js';
+import { clamp } from '../utils/general.js';
 
 /** Row-model extras used by pagination (client model only; optional). */
 interface PagingRowModel {

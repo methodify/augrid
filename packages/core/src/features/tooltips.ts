@@ -1,6 +1,6 @@
-import type { GridContext, ITooltipService } from '../context';
-import type { IColumn } from '../types/column';
-import { getPath } from '../utils/general';
+import type { GridContext, ITooltipService } from '../context.js';
+import type { IColumn } from '../types/column.js';
+import { getPath } from '../utils/general.js';
 
 /**
  * Cell tooltips: resolves tooltipField / tooltipValueGetter on delegated cell

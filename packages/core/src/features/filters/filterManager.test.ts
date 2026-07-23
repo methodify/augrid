@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { FilterManager } from './filterManager';
-import { createMockContext } from '../../test/mockContext';
-import type { ColDef } from '../../types/colDef';
-import type { FilterChangedEvent } from '../../types/events';
-import type { FilterComp, FilterParams } from '../../types/filter';
-import type { IRowNode } from '../../types/rowNode';
+import { FilterManager } from './filterManager.js';
+import { createMockContext } from '../../test/mockContext.js';
+import type { ColDef } from '../../types/colDef.js';
+import type { FilterChangedEvent } from '../../types/events.js';
+import type { FilterComp, FilterParams } from '../../types/filter.js';
+import type { IRowNode } from '../../types/rowNode.js';
 
 interface Row {
   name: string;

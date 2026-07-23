@@ -1,10 +1,10 @@
-import type { CellPosition, CellRange, SortModelItem } from './base';
-import type { IRowNode } from './rowNode';
-import type { IColumn } from './column';
-import type { ColDef } from './colDef';
-import type { FilterModelMap } from './filter';
-import type { GridApi } from './api';
-import type { PivotCellContext } from './pivot';
+import type { CellPosition, CellRange, SortModelItem } from './base.js';
+import type { IRowNode } from './rowNode.js';
+import type { IColumn } from './column.js';
+import type { ColDef } from './colDef.js';
+import type { FilterModelMap } from './filter.js';
+import type { GridApi } from './api.js';
+import type { PivotCellContext } from './pivot.js';
 
 export interface AuEvent<TData = unknown> {
   type: string;

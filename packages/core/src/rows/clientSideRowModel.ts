@@ -1,11 +1,11 @@
-import type { GridContext } from '../context';
-import type { IRowModel, PipelineStep } from './rowModel';
-import { RowNode } from './rowNode';
-import type { RowDataTransaction, RowDataTransactionResult } from '../types/api';
-import { runAggStage, runFilterStage, runGroupStage, runSortStage, pivotColId, PIVOT_SEP, type SortSpec } from './stages';
-import { binarySearchLE, insertArray } from '../utils/general';
-import type { Column } from '../columns/column';
-import type { ColDef } from '../types/colDef';
+import type { GridContext } from '../context.js';
+import type { IRowModel, PipelineStep } from './rowModel.js';
+import { RowNode } from './rowNode.js';
+import type { RowDataTransaction, RowDataTransactionResult } from '../types/api.js';
+import { runAggStage, runFilterStage, runGroupStage, runSortStage, pivotColId, PIVOT_SEP, type SortSpec } from './stages.js';
+import { binarySearchLE, insertArray } from '../utils/general.js';
+import type { Column } from '../columns/column.js';
+import type { ColDef } from '../types/colDef.js';
 
 const STEP_ORDER: PipelineStep[] = ['group', 'filter', 'pivot', 'aggregate', 'sort', 'flatten'];
 

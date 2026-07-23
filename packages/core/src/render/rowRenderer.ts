@@ -1,10 +1,10 @@
-import type { GridContext } from '../context';
-import type { Column } from '../columns/column';
-import type { RowNode } from '../rows/rowNode';
-import { RANGE_BOTTOM, RANGE_HANDLE, RANGE_IN, RANGE_LEFT, RANGE_RIGHT, RANGE_TOP } from '../context';
-import { el } from '../utils/dom';
-import { toDisplayString } from '../utils/general';
-import type { CellRendererComp, CellRendererParams } from '../types/colDef';
+import type { GridContext } from '../context.js';
+import type { Column } from '../columns/column.js';
+import type { RowNode } from '../rows/rowNode.js';
+import { RANGE_BOTTOM, RANGE_HANDLE, RANGE_IN, RANGE_LEFT, RANGE_RIGHT, RANGE_TOP } from '../context.js';
+import { el } from '../utils/dom.js';
+import { toDisplayString } from '../utils/general.js';
+import type { CellRendererComp, CellRendererParams } from '../types/colDef.js';
 
 const INDENT_PX = 20;
 

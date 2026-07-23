@@ -1,9 +1,9 @@
-import type { Density, GridState, RowPinnedPosition } from './base';
-import type { AggFunc, CellRendererDef, ColDef, ColDefOrGroup } from './colDef';
-import type { GridOptionEventCallbacks } from './events';
-import type { GetContextMenuItems } from './menu';
-import type { IRowNode } from './rowNode';
-import type { GridApi } from './api';
+import type { Density, GridState, RowPinnedPosition } from './base.js';
+import type { AggFunc, CellRendererDef, ColDef, ColDefOrGroup } from './colDef.js';
+import type { GridOptionEventCallbacks } from './events.js';
+import type { GetContextMenuItems } from './menu.js';
+import type { IRowNode } from './rowNode.js';
+import type { GridApi } from './api.js';
 
 /* ----------------------------------------------------------- infinite model */
 

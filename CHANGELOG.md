@@ -3,7 +3,25 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
-## Unreleased (v0.1)
+## 0.1.1 — 2026-07-23
+
+First **externally consumable** release: built `@augrid/core` and `@augrid/react`
+tarballs are attached to the GitHub Release (installable via URL with
+npm/pnpm/yarn/bun — see README "Installing"). A plain git dependency on the repo
+was never consumable (source-only monorepo, no `dist`); reported by mosaic-ui
+as AUG-18.
+
+- Packaging: `prepack` build hooks; `repository`/`homepage`/`bugs` metadata;
+  emitted ESM now uses `.js`-extensioned relative imports (strict-ESM/Node
+  compatible, not just bundler-compatible).
+- `@augrid/react` now declares `@augrid/core` as a **peerDependency**
+  (was a hard dependency) — install both packages together.
+- BREAKING (element API): importing `@augrid/core` is now safe without a DOM
+  (SSR/Node). `AuGridElement` is exported as a type; the class is created
+  lazily — use `defineAuGridElement()` as before, or `getAuGridElementClass()`
+  if you subclassed. `sideEffects` is now `false` (better tree-shaking).
+
+## 0.1.0 — 2026-07-22 (tag only, not consumable externally)
 
 Initial public release: framework-agnostic core (`@augrid/core`, zero runtime
 dependencies) and React wrapper (`@augrid/react`). Client-side row pipeline

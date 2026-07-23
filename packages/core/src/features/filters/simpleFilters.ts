@@ -10,7 +10,7 @@ import type {
   NumberFilterModel,
   TextFilterCondition,
   TextFilterModel,
-} from '../../types/filter';
+} from '../../types/filter.js';
 
 type ValuePredicate = (value: unknown) => boolean;
 

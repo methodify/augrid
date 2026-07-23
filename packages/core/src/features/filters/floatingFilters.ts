@@ -8,18 +8,18 @@
  * listeners, closes any open popup, and removes document listeners. The
  * header renderer must invoke it before discarding the container.
  */
-import type { GridContext } from '../../context';
-import type { Column } from '../../columns/column';
+import type { GridContext } from '../../context.js';
+import type { Column } from '../../columns/column.js';
 import type {
   DateFilterModel,
   FilterModel,
   NumberFilterModel,
   SetFilterModel,
   TextFilterModel,
-} from '../../types/filter';
-import type { FilterManager } from './filterManager';
-import { el, clearChildren } from '../../utils/dom';
-import { debounce } from '../../utils/general';
+} from '../../types/filter.js';
+import type { FilterManager } from './filterManager.js';
+import { el, clearChildren } from '../../utils/dom.js';
+import { debounce } from '../../utils/general.js';
 
 const MAX_SET_ROWS = 200;
 

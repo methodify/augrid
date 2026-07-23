@@ -1,5 +1,5 @@
-import type { RowNode } from './rowNode';
-import type { RowDataTransaction, RowDataTransactionResult } from '../types/api';
+import type { RowNode } from './rowNode.js';
+import type { RowDataTransaction, RowDataTransactionResult } from '../types/api.js';
 
 export type PipelineStep = 'group' | 'filter' | 'pivot' | 'aggregate' | 'sort' | 'flatten';
 

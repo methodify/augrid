@@ -1,9 +1,9 @@
-import type { ColDef, ColDefOrGroup, ColGroupDef } from '../types/colDef';
-import { isColGroupDef } from '../types/colDef';
-import type { ColumnStateItem, PinnedPosition } from '../types/base';
-import type { GridContext } from '../context';
-import { Column, type CellDataType } from './column';
-import { clamp, humanize, nextId } from '../utils/general';
+import type { ColDef, ColDefOrGroup, ColGroupDef } from '../types/colDef.js';
+import { isColGroupDef } from '../types/colDef.js';
+import type { ColumnStateItem, PinnedPosition } from '../types/base.js';
+import type { GridContext } from '../context.js';
+import { Column, type CellDataType } from './column.js';
+import { clamp, humanize, nextId } from '../utils/general.js';
 
 export interface HeaderGroupNode<TData = unknown> {
   kind: 'group';

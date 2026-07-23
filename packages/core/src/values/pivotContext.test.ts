@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { buildPivotCellContext, isAggregateTarget } from './pivotContext';
-import type { GridOptions } from '../types/gridOptions';
-import type { RowNode } from '../rows/rowNode';
+import { createMockContext } from '../test/mockContext.js';
+import { buildPivotCellContext, isAggregateTarget } from './pivotContext.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import type { RowNode } from '../rows/rowNode.js';
 
 interface Row {
   item: string;

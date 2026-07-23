@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { PaginationService } from './pagination';
-import type { GridOptions } from '../types/gridOptions';
-import type { PaginationChangedEvent } from '../types/events';
+import { createMockContext } from '../test/mockContext.js';
+import { PaginationService } from './pagination.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import type { PaginationChangedEvent } from '../types/events.js';
 
 interface Row {
   id: number;

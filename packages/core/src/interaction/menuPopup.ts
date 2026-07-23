@@ -1,6 +1,6 @@
-import type { GridContext } from '../context';
-import type { DefaultMenuItem, MenuItemDef } from '../types/menu';
-import { el } from '../utils/dom';
+import type { GridContext } from '../context.js';
+import type { DefaultMenuItem, MenuItemDef } from '../types/menu.js';
+import { el } from '../utils/dom.js';
 
 export type ResolvedMenuItem<TData> = MenuItemDef<TData> | 'separator';
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import type { GridContext } from '../context';
-import type { GridOptions } from '../types/gridOptions';
-import { RowNode } from './rowNode';
+import { createMockContext } from '../test/mockContext.js';
+import type { GridContext } from '../context.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import { RowNode } from './rowNode.js';
 import {
   GROUP_PATH_SEP,
   joinGroupPath,
@@ -13,7 +13,7 @@ import {
   runGroupStage,
   runSortStage,
   type SortSpec,
-} from './stages';
+} from './stages.js';
 
 /** Shorthand: group path from key segments (C8 scheme: SEP-prefixed segments). */
 const P = (...segs: string[]): string => joinGroupPath(segs);

@@ -1,6 +1,6 @@
-import type { GridContext, IColumnDragService } from '../context';
-import { el } from '../utils/dom';
-import { clamp } from '../utils/general';
+import type { GridContext, IColumnDragService } from '../context.js';
+import { el } from '../utils/dom.js';
+import { clamp } from '../utils/general.js';
 
 /* ------------------------------------------------- pure geometry helpers */
 

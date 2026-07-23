@@ -1,5 +1,5 @@
-import type { GridOptions } from './types/gridOptions';
-import { signal, type Signal } from './state/store';
+import type { GridOptions } from './types/gridOptions.js';
+import { signal, type Signal } from './state/store.js';
 
 const DEFAULTS = {
   rowHeight: 32,

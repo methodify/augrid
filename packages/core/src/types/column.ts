@@ -1,5 +1,5 @@
-import type { PinnedPosition, SortDirection } from './base';
-import type { AggFunc, ColDef } from './colDef';
+import type { PinnedPosition, SortDirection } from './base.js';
+import type { AggFunc, ColDef } from './colDef.js';
 
 /** Public view of a live column instance. */
 export interface IColumn<TData = unknown> {

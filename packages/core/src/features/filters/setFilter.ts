@@ -2,9 +2,9 @@
  * Set filter: predicate over a selected set of stringified values plus the
  * distinct-value collector used by the floating-filter popup UI.
  */
-import type { GridContext } from '../../context';
-import type { SetFilterModel } from '../../types/filter';
-import { isBlankValue } from './simpleFilters';
+import type { GridContext } from '../../context.js';
+import type { SetFilterModel } from '../../types/filter.js';
+import { isBlankValue } from './simpleFilters.js';
 
 /** Max distinct values collected for the set filter. */
 export const SET_FILTER_VALUE_CAP = 10_000;

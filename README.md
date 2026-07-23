@@ -6,10 +6,19 @@ prices for — row grouping, aggregation, **pivoting**, cell **range selection**
 handle**, **clipboard**, tree data, set filters, undo/redo — free, in one small,
 zero-dependency package.
 
+**Installing (pre-npm):** AuGrid is not on npm yet. Install the built tarballs from the
+latest [GitHub Release](https://github.com/methodify/augrid/releases) — works with npm,
+pnpm, yarn, and bun:
+
 ```
-pnpm add @augrid/core        # framework-agnostic
-pnpm add @augrid/react       # React 18/19 wrapper
+npm add https://github.com/methodify/augrid/releases/download/v0.1.1/augrid-core-0.1.1.tgz \
+        https://github.com/methodify/augrid/releases/download/v0.1.1/augrid-react-0.1.1.tgz
 ```
+
+Install both together: `@augrid/react` declares `@augrid/core` as a peer dependency.
+(Once published to npm this becomes `npm add @augrid/core @augrid/react`.)
+Note: a plain git dependency on this repo does NOT work — it's a source-only monorepo;
+the release tarballs are the built artifacts.
 
 ## Quick start (vanilla)
 

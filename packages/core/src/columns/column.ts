@@ -1,7 +1,7 @@
-import type { IColumn } from '../types/column';
-import type { ColDef } from '../types/colDef';
-import type { PinnedPosition, SortDirection } from '../types/base';
-import { humanize } from '../utils/general';
+import type { IColumn } from '../types/column.js';
+import type { ColDef } from '../types/colDef.js';
+import type { PinnedPosition, SortDirection } from '../types/base.js';
+import { humanize } from '../utils/general.js';
 
 export type CellDataType = 'text' | 'number' | 'date' | 'boolean' | 'object';
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { buildColumnMenuItems } from './columnMenuService';
-import { Grid } from '../grid';
-import type { Column } from '../columns/column';
-import type { ColDef } from '../types/colDef';
-import type { MenuItemDef } from '../types/menu';
+import { createMockContext } from '../test/mockContext.js';
+import { buildColumnMenuItems } from './columnMenuService.js';
+import { Grid } from '../grid.js';
+import type { Column } from '../columns/column.js';
+import type { ColDef } from '../types/colDef.js';
+import type { MenuItemDef } from '../types/menu.js';
 
 interface Row {
   id: number;

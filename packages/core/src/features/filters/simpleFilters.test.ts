@@ -3,13 +3,13 @@ import {
   buildDatePredicate,
   buildNumberPredicate,
   buildTextPredicate,
-} from './simpleFilters';
-import { buildSetPredicate } from './setFilter';
+} from './simpleFilters.js';
+import { buildSetPredicate } from './setFilter.js';
 import type {
   DateFilterModel,
   NumberFilterModel,
   TextFilterModel,
-} from '../../types/filter';
+} from '../../types/filter.js';
 
 const text = (m: Omit<TextFilterModel, 'filterType'>): TextFilterModel => ({
   filterType: 'text',

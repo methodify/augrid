@@ -9,19 +9,19 @@
  * ClientSideRowModel's contract for the methods SelectionService uses.
  */
 import { describe, expect, it } from 'vitest';
-import type { GridContext, IFilterManager, ISortController } from '../context';
-import type { GridOptions } from '../types/gridOptions';
-import type { RowDataTransaction, RowDataTransactionResult } from '../types/api';
-import type { IRowModel } from '../rows/rowModel';
-import type { RowSelectedEvent, SelectionChangedEvent } from '../types/events';
-import { OptionsService } from '../options';
-import { EventService } from '../events/eventService';
-import { ValueService } from '../values/valueService';
-import { ColumnModel } from '../columns/columnModel';
-import { createGridApi } from '../gridApi';
-import { RowNode } from '../rows/rowNode';
-import { runGroupStage, runFilterStage } from '../rows/stages';
-import { SelectionService } from './selectionService';
+import type { GridContext, IFilterManager, ISortController } from '../context.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import type { RowDataTransaction, RowDataTransactionResult } from '../types/api.js';
+import type { IRowModel } from '../rows/rowModel.js';
+import type { RowSelectedEvent, SelectionChangedEvent } from '../types/events.js';
+import { OptionsService } from '../options.js';
+import { EventService } from '../events/eventService.js';
+import { ValueService } from '../values/valueService.js';
+import { ColumnModel } from '../columns/columnModel.js';
+import { createGridApi } from '../gridApi.js';
+import { RowNode } from '../rows/rowNode.js';
+import { runGroupStage, runFilterStage } from '../rows/stages.js';
+import { SelectionService } from './selectionService.js';
 
 interface Row {
   id: string;

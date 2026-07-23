@@ -9,7 +9,7 @@ import {
   insertArray,
   setPath,
   toDisplayString,
-} from './general';
+} from './general.js';
 
 describe('getPath / setPath', () => {
   it('reads plain keys', () => {

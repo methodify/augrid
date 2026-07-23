@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Grid } from '@augrid/core';
 import type { GridApi, GridOptions } from '@augrid/core';
-import { ReactFrameworkAdapter, PortalHost } from './frameworkAdapter';
+import { ReactFrameworkAdapter, PortalHost } from './frameworkAdapter.js';
 
 export interface AuGridProps<TData = unknown> extends GridOptions<TData> {
   /** Merged over the default { width: '100%', height: '100%' } on the host div. */

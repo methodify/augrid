@@ -1,8 +1,8 @@
-import type { GridContext, ISideBarService, ToolPanelId } from '../../context';
-import type { GridOptions } from '../../types/gridOptions';
-import { el } from '../../utils/dom';
-import { ColumnsPanel } from './columnsPanel';
-import { FiltersPanel } from './filtersPanel';
+import type { GridContext, ISideBarService, ToolPanelId } from '../../context.js';
+import type { GridOptions } from '../../types/gridOptions.js';
+import { el } from '../../utils/dom.js';
+import { ColumnsPanel } from './columnsPanel.js';
+import { FiltersPanel } from './filtersPanel.js';
 
 export interface ResolvedSideBar {
   panels: ToolPanelId[];

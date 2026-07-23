@@ -1,14 +1,14 @@
-import type { GridApi, CsvExportParams, RowDataTransaction, RowDataTransactionResult } from './types/api';
-import type { GridContext } from './context';
-import type { GridOptions } from './types/gridOptions';
-import type { GridState, CellPosition, CellRange, ColumnStateItem, PinnedPosition, RowPinnedPosition, SortModelItem } from './types/base';
-import type { IRowNode } from './types/rowNode';
-import type { RowNode } from './rows/rowNode';
-import type { ClientSideRowModel } from './rows/clientSideRowModel';
-import type { FilterModel, FilterModelMap } from './types/filter';
-import type { GridEventListener, GridEventName } from './types/events';
-import { exportCsv, downloadCsv } from './features/csvExport';
-import { buildPivotCellContext } from './values/pivotContext';
+import type { GridApi, CsvExportParams, RowDataTransaction, RowDataTransactionResult } from './types/api.js';
+import type { GridContext } from './context.js';
+import type { GridOptions } from './types/gridOptions.js';
+import type { GridState, CellPosition, CellRange, ColumnStateItem, PinnedPosition, RowPinnedPosition, SortModelItem } from './types/base.js';
+import type { IRowNode } from './types/rowNode.js';
+import type { RowNode } from './rows/rowNode.js';
+import type { ClientSideRowModel } from './rows/clientSideRowModel.js';
+import type { FilterModel, FilterModelMap } from './types/filter.js';
+import type { GridEventListener, GridEventName } from './types/events.js';
+import { exportCsv, downloadCsv } from './features/csvExport.js';
+import { buildPivotCellContext } from './values/pivotContext.js';
 
 /** Concrete GridApi implementation — thin delegation over the context. */
 export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {

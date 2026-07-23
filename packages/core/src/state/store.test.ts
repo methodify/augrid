@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { batch, computed, effect, signal } from './store';
+import { batch, computed, effect, signal } from './store.js';
 
 describe('signal', () => {
   it('get/set/peek', () => {

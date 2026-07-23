@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { Column } from '../columns/column';
-import { RowNode } from '../rows/rowNode';
-import { pivotColId } from '../rows/stages';
+import { createMockContext } from '../test/mockContext.js';
+import { Column } from '../columns/column.js';
+import { RowNode } from '../rows/rowNode.js';
+import { pivotColId } from '../rows/stages.js';
 
 interface Row {
   id?: string;

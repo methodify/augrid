@@ -1,17 +1,17 @@
-import type { FrameworkAdapter, GridContext, IEditingService, StartEditParams } from '../context';
-import type { CellPosition } from '../types/base';
-import type { CellEditorComp, CellEditorParams } from '../types/colDef';
-import type { IColumn } from '../types/column';
-import type { Column } from '../columns/column';
-import type { RowNode } from '../rows/rowNode';
-import { buildPivotCellContext, isAggregateTarget } from '../values/pivotContext';
+import type { FrameworkAdapter, GridContext, IEditingService, StartEditParams } from '../context.js';
+import type { CellPosition } from '../types/base.js';
+import type { CellEditorComp, CellEditorParams } from '../types/colDef.js';
+import type { IColumn } from '../types/column.js';
+import type { Column } from '../columns/column.js';
+import type { RowNode } from '../rows/rowNode.js';
+import { buildPivotCellContext, isAggregateTarget } from '../values/pivotContext.js';
 import {
   CheckboxCellEditor,
   DateCellEditor,
   NumberCellEditor,
   PROVIDED_EDITORS,
   TextCellEditor,
-} from './editors';
+} from './editors.js';
 
 /**
  * Editing state is keyed by the RowNode reference (and its id) — never by a

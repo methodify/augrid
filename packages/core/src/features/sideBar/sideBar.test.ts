@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createMockContext } from '../../test/mockContext';
-import { resolveSideBarDef } from './sideBarService';
-import { addToZone, removeFromZone, zoneColIds } from './columnsPanel';
-import { Grid } from '../../grid';
-import type { ColDef } from '../../types/colDef';
+import { createMockContext } from '../../test/mockContext.js';
+import { resolveSideBarDef } from './sideBarService.js';
+import { addToZone, removeFromZone, zoneColIds } from './columnsPanel.js';
+import { Grid } from '../../grid.js';
+import type { ColDef } from '../../types/colDef.js';
 
 interface Row {
   id: number;

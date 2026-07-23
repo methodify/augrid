@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { HeaderRenderer } from './headerRenderer';
-import type { GridOptions } from '../types/gridOptions';
-import type { Column } from '../columns/column';
+import { createMockContext } from '../test/mockContext.js';
+import { HeaderRenderer } from './headerRenderer.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import type { Column } from '../columns/column.js';
 
 interface Row {
   id: string;

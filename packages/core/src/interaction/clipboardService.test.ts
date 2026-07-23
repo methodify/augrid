@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ClipboardService } from './clipboardService';
-import { createMockContext } from '../test/mockContext';
-import type { GridContext, IRangeService } from '../context';
-import type { CellRange } from '../types/base';
-import type { GridOptions } from '../types/gridOptions';
+import { ClipboardService } from './clipboardService.js';
+import { createMockContext } from '../test/mockContext.js';
+import type { GridContext, IRangeService } from '../context.js';
+import type { CellRange } from '../types/base.js';
+import type { GridOptions } from '../types/gridOptions.js';
 
 interface Car {
   make: string;
@@ -166,19 +166,17 @@ describe('ClipboardService.cut', () => {
   });
 
   it('range cut through the REAL editability gate: copies all cells, clears only editable ones', async () => {
-    const { ctx } = (() => {
-      const r = createMockContext<Car>({
-        columnDefs: [
-          { field: 'make', editable: true },
-          { field: 'model' }, // read-only
-          { field: 'price' }, // read-only
-        ],
-        // fresh copies: this test REALLY mutates rows (no commitValue spy)
-        rowData: rowData.map((row) => ({ ...row })),
-      });
-      return { ctx: r.ctx, start: r.start(), _: undefined };
-    })();
-    const { EditingService } = await import('./editingService');
+    const { ctx, start } = createMockContext<Car>({
+      columnDefs: [
+        { field: 'make', editable: true },
+        { field: 'model' }, // read-only
+        { field: 'price' }, // read-only
+      ],
+      // fresh copies: this test REALLY mutates rows (no commitValue spy)
+      rowData: rowData.map((row) => ({ ...row })),
+    });
+    start();
+    const { EditingService } = await import('./editingService.js');
     ctx.editing = new EditingService<Car>(ctx);
     const clipboard = new ClipboardService<Car>(ctx);
     ctx.clipboard = clipboard;

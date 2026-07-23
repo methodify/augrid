@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { SortController } from './sortController';
-import type { SortChangedEvent } from '../types/events';
+import { createMockContext } from '../test/mockContext.js';
+import { SortController } from './sortController.js';
+import type { SortChangedEvent } from '../types/events.js';
 
 interface Row {
   name: string;

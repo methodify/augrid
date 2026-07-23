@@ -1,8 +1,8 @@
-import type { GridContext } from '../context';
-import type { Column } from '../columns/column';
-import type { RowNode } from '../rows/rowNode';
-import type { PivotCellContext, PivotKeyPart } from '../types/pivot';
-import { toDisplayString } from '../utils/general';
+import type { GridContext } from '../context.js';
+import type { Column } from '../columns/column.js';
+import type { RowNode } from '../rows/rowNode.js';
+import type { PivotCellContext, PivotKeyPart } from '../types/pivot.js';
+import { toDisplayString } from '../utils/general.js';
 
 /**
  * True when a commit to (node, column) targets an AGGREGATE value — a cell

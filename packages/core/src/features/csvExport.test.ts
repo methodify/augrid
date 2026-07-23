@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { exportCsv } from './csvExport';
-import type { GridOptions } from '../types/gridOptions';
+import { createMockContext } from '../test/mockContext.js';
+import { exportCsv } from './csvExport.js';
+import type { GridOptions } from '../types/gridOptions.js';
 
 interface Row {
   id: number;

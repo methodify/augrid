@@ -1,7 +1,7 @@
-import type { GridContext } from '../context';
-import type { IRowModel } from './rowModel';
-import { RowNode } from './rowNode';
-import type { Datasource, GetRowsParams } from '../types/gridOptions';
+import type { GridContext } from '../context.js';
+import type { IRowModel } from './rowModel.js';
+import { RowNode } from './rowNode.js';
+import type { Datasource, GetRowsParams } from '../types/gridOptions.js';
 
 interface Block<TData> {
   /** Sparse: real nodes once loaded; placeholder nodes while loading/failed. */

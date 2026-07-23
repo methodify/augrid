@@ -1,4 +1,4 @@
-import type { GridEventMap, GridEventName } from '../types/events';
+import type { GridEventMap, GridEventName } from '../types/events.js';
 
 type AnyListener = (event: unknown) => void;
 

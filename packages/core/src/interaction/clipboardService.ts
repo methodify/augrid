@@ -1,7 +1,7 @@
-import type { GridContext, IClipboardService } from '../context';
-import type { CellRange } from '../types/base';
-import type { Column } from '../columns/column';
-import type { RowNode } from '../rows/rowNode';
+import type { GridContext, IClipboardService } from '../context.js';
+import type { CellRange } from '../types/base.js';
+import type { Column } from '../columns/column.js';
+import type { RowNode } from '../rows/rowNode.js';
 
 /**
  * Clipboard: TSV serialization of ranges / selected rows / focused cell,

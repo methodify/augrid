@@ -9,8 +9,8 @@
  * IRowModel methods RangeService uses (getRow, getRowCount, onRowDataPatched).
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { GridContext } from '../context';
-import { RangeService } from './rangeService';
+import type { GridContext } from '../context.js';
+import { RangeService } from './rangeService.js';
 import {
   RANGE_IN,
   RANGE_TOP,
@@ -18,15 +18,15 @@ import {
   RANGE_BOTTOM,
   RANGE_LEFT,
   RANGE_HANDLE,
-} from '../context';
-import { OptionsService } from '../options';
-import { EventService } from '../events/eventService';
-import { ValueService } from '../values/valueService';
-import { ColumnModel } from '../columns/columnModel';
-import { createGridApi } from '../gridApi';
-import { RowNode } from '../rows/rowNode';
-import type { GridOptions } from '../types/gridOptions';
-import type { CellPosition } from '../types/base';
+} from '../context.js';
+import { OptionsService } from '../options.js';
+import { EventService } from '../events/eventService.js';
+import { ValueService } from '../values/valueService.js';
+import { ColumnModel } from '../columns/columnModel.js';
+import { createGridApi } from '../gridApi.js';
+import { RowNode } from '../rows/rowNode.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import type { CellPosition } from '../types/base.js';
 
 interface Row {
   a: number;

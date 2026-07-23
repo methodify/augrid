@@ -1,7 +1,7 @@
-import type { GridContext, IColumnMenuService } from '../context';
-import type { Column } from '../columns/column';
-import { MenuPopup, type ResolvedMenuItem } from './menuPopup';
-import { resolveMenuItems } from './contextMenuService';
+import type { GridContext, IColumnMenuService } from '../context.js';
+import type { Column } from '../columns/column.js';
+import { MenuPopup, type ResolvedMenuItem } from './menuPopup.js';
+import { resolveMenuItems } from './contextMenuService.js';
 
 /**
  * Item list for a column's header menu, driven by column capabilities

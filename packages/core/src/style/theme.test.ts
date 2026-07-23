@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { applyTheme, toCssVar } from './theme';
-import { DARK_PARAMS, LIGHT_PARAMS } from './themes';
+import { applyTheme, toCssVar } from './theme.js';
+import { DARK_PARAMS, LIGHT_PARAMS } from './themes.js';
 
 // jsdom gap shim: in browsers CSSStyleDeclaration is a WebIDL value iterator
 // (indexed getter + length), so `[...el.style]` — used by applyTheme — works.

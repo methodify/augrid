@@ -1,7 +1,7 @@
-import type { GridContext, IFocusService } from '../context';
-import type { CellPosition, RowPinnedPosition } from '../types/base';
-import type { RowNode } from '../rows/rowNode';
-import { clamp } from '../utils/general';
+import type { GridContext, IFocusService } from '../context.js';
+import type { CellPosition, RowPinnedPosition } from '../types/base.js';
+import type { RowNode } from '../rows/rowNode.js';
+import { clamp } from '../utils/general.js';
 
 /** Keys that initialise focus on the first cell when nothing is focused yet. */
 const FOCUS_INIT_KEYS = new Set([

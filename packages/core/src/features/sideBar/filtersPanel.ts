@@ -1,8 +1,8 @@
-import type { GridContext } from '../../context';
-import type { Column } from '../../columns/column';
-import type { FilterManager } from '../filters/filterManager';
-import { mountFloatingFilter } from '../filters/floatingFilters';
-import { el, clearChildren } from '../../utils/dom';
+import type { GridContext } from '../../context.js';
+import type { Column } from '../../columns/column.js';
+import type { FilterManager } from '../filters/filterManager.js';
+import { mountFloatingFilter } from '../filters/floatingFilters.js';
+import { el, clearChildren } from '../../utils/dom.js';
 
 interface Entry {
   colId: string;

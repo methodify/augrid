@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Grid } from '../grid';
-import { createMockContext } from '../test/mockContext';
-import { buildDefaultItems, resolveMenuItems } from './contextMenuService';
-import type { Column } from '../columns/column';
-import type { ColDef } from '../types/colDef';
-import type { GetContextMenuItemsParams, MenuItemDef } from '../types/menu';
+import { Grid } from '../grid.js';
+import { createMockContext } from '../test/mockContext.js';
+import { buildDefaultItems, resolveMenuItems } from './contextMenuService.js';
+import type { Column } from '../columns/column.js';
+import type { ColDef } from '../types/colDef.js';
+import type { GetContextMenuItemsParams, MenuItemDef } from '../types/menu.js';
 
 interface Row {
   id: number;

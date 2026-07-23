@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { FindService } from './findService';
-import { Grid } from '../grid';
-import type { ColDef } from '../types/colDef';
-import type { FindChangedEvent } from '../types/events';
+import { createMockContext } from '../test/mockContext.js';
+import { FindService } from './findService.js';
+import { Grid } from '../grid.js';
+import type { ColDef } from '../types/colDef.js';
+import type { FindChangedEvent } from '../types/events.js';
 
 interface Row {
   id: number;

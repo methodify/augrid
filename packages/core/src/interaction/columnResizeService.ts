@@ -1,4 +1,4 @@
-import type { GridContext, IColumnResizeService } from '../context';
+import type { GridContext, IColumnResizeService } from '../context.js';
 
 /**
  * Column resize gesture: wired onto the `.au-header-resize` grip elements the

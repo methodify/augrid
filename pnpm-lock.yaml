@@ -58,11 +58,10 @@ importers:
   packages/core: {}
 
   packages/react:
-    dependencies:
+    devDependencies:
       '@augrid/core':
         specifier: workspace:*
         version: link:../core
-    devDependencies:
       '@types/react':
         specifier: ^19.0.2
         version: 19.2.17

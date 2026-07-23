@@ -1,6 +1,6 @@
-import type { GridContext, ISelectionService } from '../context';
-import type { RowNode } from '../rows/rowNode';
-import type { IRowNode } from '../types/rowNode';
+import type { GridContext, ISelectionService } from '../context.js';
+import type { RowNode } from '../rows/rowNode.js';
+import type { IRowNode } from '../types/rowNode.js';
 
 interface NormalizedRowSelection<TData> {
   mode: 'singleRow' | 'multiRow';

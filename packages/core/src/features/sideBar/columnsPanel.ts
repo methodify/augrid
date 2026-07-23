@@ -1,6 +1,6 @@
-import type { GridContext } from '../../context';
-import type { GridEventName } from '../../types/events';
-import { el, clearChildren } from '../../utils/dom';
+import type { GridContext } from '../../context.js';
+import type { GridEventName } from '../../types/events.js';
+import { el, clearChildren } from '../../utils/dom.js';
 
 export type PanelZone = 'rowGroup' | 'value' | 'pivot';
 

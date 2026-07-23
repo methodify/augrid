@@ -1,12 +1,12 @@
-import type { GridContext } from '../context';
-import type { Column } from '../columns/column';
-import type { RowNode } from '../rows/rowNode';
-import { RowBand, FullWidthBand } from './rowRenderer';
-import { HeaderRenderer } from './headerRenderer';
-import { el, closestWithAttr } from '../utils/dom';
-import { clamp } from '../utils/general';
-import type { CellPosition } from '../types/base';
-import type { ClientSideRowModel } from '../rows/clientSideRowModel';
+import type { GridContext } from '../context.js';
+import type { Column } from '../columns/column.js';
+import type { RowNode } from '../rows/rowNode.js';
+import { RowBand, FullWidthBand } from './rowRenderer.js';
+import { HeaderRenderer } from './headerRenderer.js';
+import { el, closestWithAttr } from '../utils/dom.js';
+import { clamp } from '../utils/general.js';
+import type { CellPosition } from '../types/base.js';
+import type { ClientSideRowModel } from '../rows/clientSideRowModel.js';
 
 interface CellHit<TData> {
   node: RowNode<TData>;

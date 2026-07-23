@@ -1,4 +1,4 @@
-import type { GridContext, IRangeService } from '../context';
+import type { GridContext, IRangeService } from '../context.js';
 import {
   RANGE_IN,
   RANGE_TOP,
@@ -6,11 +6,11 @@ import {
   RANGE_BOTTOM,
   RANGE_LEFT,
   RANGE_HANDLE,
-} from '../context';
-import type { CellPosition, CellRange } from '../types/base';
-import type { CellSelectionOptions } from '../types/gridOptions';
-import type { RowNode } from '../rows/rowNode';
-import { closestWithAttr } from '../utils/dom';
+} from '../context.js';
+import type { CellPosition, CellRange } from '../types/base.js';
+import type { CellSelectionOptions } from '../types/gridOptions.js';
+import type { RowNode } from '../rows/rowNode.js';
+import { closestWithAttr } from '../utils/dom.js';
 
 const SELECTION_COL = 'au-selection-col';
 

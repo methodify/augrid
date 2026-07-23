@@ -1,24 +1,24 @@
 /* AuGrid core — public API surface. */
 
-export { createGrid, Grid } from './grid';
-export { AuGridElement, defineAuGridElement } from './element';
+export { createGrid, Grid } from './grid.js';
+export { defineAuGridElement, getAuGridElementClass, type AuGridElement } from './element.js';
 
-export type * from './types/base';
-export type * from './types/colDef';
-export type * from './types/column';
-export type * from './types/rowNode';
-export type * from './types/filter';
-export type * from './types/events';
-export type * from './types/gridOptions';
-export type * from './types/api';
-export type * from './types/pivot';
-export type * from './types/menu';
-export { isColGroupDef } from './types/colDef';
+export type * from './types/base.js';
+export type * from './types/colDef.js';
+export type * from './types/column.js';
+export type * from './types/rowNode.js';
+export type * from './types/filter.js';
+export type * from './types/events.js';
+export type * from './types/gridOptions.js';
+export type * from './types/api.js';
+export type * from './types/pivot.js';
+export type * from './types/menu.js';
+export { isColGroupDef } from './types/colDef.js';
 
-export type { GridContext, FrameworkAdapter } from './context';
-export { RowNode } from './rows/rowNode';
-export { Column } from './columns/column';
-export { ClientSideRowModel } from './rows/clientSideRowModel';
-export { InfiniteRowModel } from './rows/infiniteRowModel';
-export { applyTheme, injectStyles, toCssVar } from './style/theme';
-export { LIGHT_PARAMS, DARK_PARAMS } from './style/themes';
+export type { GridContext, FrameworkAdapter } from './context.js';
+export { RowNode } from './rows/rowNode.js';
+export { Column } from './columns/column.js';
+export { ClientSideRowModel } from './rows/clientSideRowModel.js';
+export { InfiniteRowModel } from './rows/infiniteRowModel.js';
+export { applyTheme, injectStyles, toCssVar } from './style/theme.js';
+export { LIGHT_PARAMS, DARK_PARAMS } from './style/themes.js';

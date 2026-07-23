@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { UndoRedoService } from './undoRedo';
-import type { GridOptions } from '../types/gridOptions';
+import { createMockContext } from '../test/mockContext.js';
+import { UndoRedoService } from './undoRedo.js';
+import type { GridOptions } from '../types/gridOptions.js';
 
 interface Row {
   id: number;

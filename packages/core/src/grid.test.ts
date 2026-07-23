@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Grid } from './grid';
-import type { ColDef } from './types/colDef';
-import type { CellEditRequestEvent, CellValueChangedEvent } from './types/events';
+import { Grid } from './grid.js';
+import type { ColDef } from './types/colDef.js';
+import type { CellEditRequestEvent, CellValueChangedEvent } from './types/events.js';
 
 interface Row {
   id: number;
@@ -167,7 +167,7 @@ describe('Grid composition root', () => {
       { item: 'Shirt', store: 'S2', onHand: 20, alloc: 2 },
       { item: 'Pants', store: 'S1', onHand: 30, alloc: 3 },
     ];
-    const requests: import('./types/events').CellEditRequestEvent<PRow>[] = [];
+    const requests: import('./types/events.js').CellEditRequestEvent<PRow>[] = [];
     const host = document.createElement('div');
     document.body.appendChild(host);
     const grid = new Grid<PRow>(host, {
@@ -238,14 +238,14 @@ describe('Grid composition root', () => {
   });
 
   it('grouped (non-pivot) editable aggregate cell routes with empty pivotKeys (AUG-6)', () => {
-    const requests: import('./types/events').CellEditRequestEvent<Row>[] = [];
+    const requests: import('./types/events.js').CellEditRequestEvent<Row>[] = [];
     const { grid } = mount({
       columnDefs: [
         { field: 'name' },
         { field: 'country', rowGroup: true },
         { field: 'gold', aggFunc: 'sum', editable: true },
       ] satisfies ColDef<Row>[],
-      onCellEditRequest: (e: import('./types/events').CellEditRequestEvent<Row>) =>
+      onCellEditRequest: (e: import('./types/events.js').CellEditRequestEvent<Row>) =>
         requests.push(e),
     });
     const group = grid.api.getDisplayedRowAtIndex(0)!;
@@ -274,7 +274,7 @@ describe('Grid composition root', () => {
         {
           field: 'gold',
           aggFunc: 'sum',
-          editable: (p: import('./types/colDef').EditableCallbackParams<Row>) => {
+          editable: (p: import('./types/colDef.js').EditableCallbackParams<Row>) => {
             seen.push(p.pivot);
             return p.pivot != null && p.pivot.level === 0;
           },

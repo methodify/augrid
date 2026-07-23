@@ -6,13 +6,13 @@ import type {
   PinnedPosition,
   RowPinnedPosition,
   SortModelItem,
-} from './base';
-import type { IColumn } from './column';
-import type { IRowNode } from './rowNode';
-import type { FilterModel, FilterModelMap } from './filter';
-import type { GridEventListener, GridEventName } from './events';
-import type { GridOptions } from './gridOptions';
-import type { PivotCellContext } from './pivot';
+} from './base.js';
+import type { IColumn } from './column.js';
+import type { IRowNode } from './rowNode.js';
+import type { FilterModel, FilterModelMap } from './filter.js';
+import type { GridEventListener, GridEventName } from './events.js';
+import type { GridOptions } from './gridOptions.js';
+import type { PivotCellContext } from './pivot.js';
 
 export interface RowDataTransaction<TData = unknown> {
   add?: TData[];

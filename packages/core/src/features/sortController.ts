@@ -1,6 +1,6 @@
-import type { GridContext, ISortController } from '../context';
-import type { Column } from '../columns/column';
-import type { SortDirection, SortModelItem } from '../types/base';
+import type { GridContext, ISortController } from '../context.js';
+import type { Column } from '../columns/column.js';
+import type { SortDirection, SortModelItem } from '../types/base.js';
 
 const DEFAULT_SORTING_ORDER: SortDirection[] = ['asc', 'desc', null];
 

@@ -1,15 +1,15 @@
-import type { GridContext, IContextMenuService } from '../context';
-import type { CellPosition } from '../types/base';
+import type { GridContext, IContextMenuService } from '../context.js';
+import type { CellPosition } from '../types/base.js';
 import type {
   DefaultMenuItem,
   GetContextMenuItemsParams,
   MenuItemDef,
-} from '../types/menu';
-import type { Column } from '../columns/column';
-import type { RowNode } from '../rows/rowNode';
-import type { ClientSideRowModel } from '../rows/clientSideRowModel';
-import { buildPivotCellContext } from '../values/pivotContext';
-import { MenuPopup, type ResolvedMenuItem } from './menuPopup';
+} from '../types/menu.js';
+import type { Column } from '../columns/column.js';
+import type { RowNode } from '../rows/rowNode.js';
+import type { ClientSideRowModel } from '../rows/clientSideRowModel.js';
+import { buildPivotCellContext } from '../values/pivotContext.js';
+import { MenuPopup, type ResolvedMenuItem } from './menuPopup.js';
 
 /* ------------------------------------------------ pure item construction */
 

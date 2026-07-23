@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { Grid } from '../grid';
-import type { ColDef } from '../types/colDef';
+import { Grid } from '../grid.js';
+import type { ColDef } from '../types/colDef.js';
 
 interface Row {
   id: number; a: string; b: string; c: number; d: number; e: number; f: string; g: number;

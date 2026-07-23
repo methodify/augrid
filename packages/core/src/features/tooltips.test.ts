@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { TooltipService } from './tooltips';
+import { createMockContext } from '../test/mockContext.js';
+import { TooltipService } from './tooltips.js';
 
 interface Row {
   name: string;

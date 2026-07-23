@@ -1,8 +1,8 @@
-import type { GridContext } from '../context';
-import type { Column } from '../columns/column';
-import type { RowNode } from '../rows/rowNode';
-import { getPath, setPath, toDisplayString } from '../utils/general';
-import { buildPivotCellContext, isAggregateTarget } from './pivotContext';
+import type { GridContext } from '../context.js';
+import type { Column } from '../columns/column.js';
+import type { RowNode } from '../rows/rowNode.js';
+import { getPath, setPath, toDisplayString } from '../utils/general.js';
+import { buildPivotCellContext, isAggregateTarget } from './pivotContext.js';
 
 /**
  * The single read/write funnel for cell values:

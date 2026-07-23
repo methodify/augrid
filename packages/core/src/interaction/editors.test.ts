@@ -7,8 +7,8 @@ import {
   PROVIDED_EDITORS,
   SelectCellEditor,
   TextCellEditor,
-} from './editors';
-import type { CellEditorParams } from '../types/colDef';
+} from './editors.js';
+import type { CellEditorParams } from '../types/colDef.js';
 
 function makeParams(overrides: Partial<CellEditorParams> = {}): CellEditorParams {
   return {

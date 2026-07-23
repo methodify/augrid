@@ -11,7 +11,7 @@ import { describe, test, expect, vi, afterEach } from 'vitest';
 import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { ReactFrameworkAdapter, PortalHost, reactComponent } from './frameworkAdapter';
+import { ReactFrameworkAdapter, PortalHost, reactComponent } from './frameworkAdapter.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -196,8 +196,8 @@ describe('AuGrid full mount (skipped while core barrel is incomplete)', () => {
   }
 
   test.skipIf(!coreAvailable)('mounts, exposes api, renders data, diffs props', async () => {
-    const { AuGrid } = await import('./AuGrid');
-    type AuGridRefT = import('./AuGrid').AuGridRef<Row>;
+    const { AuGrid } = await import('./AuGrid.js');
+    type AuGridRefT = import('./AuGrid.js').AuGridRef<Row>;
 
     const host = document.createElement('div');
     document.body.appendChild(host);

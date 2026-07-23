@@ -1,4 +1,4 @@
-import type { RowPinnedPosition } from './base';
+import type { RowPinnedPosition } from './base.js';
 
 /**
  * Public view of a row in the grid. Leaf rows wrap one item of row data;

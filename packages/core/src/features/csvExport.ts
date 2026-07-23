@@ -1,7 +1,7 @@
-import type { GridContext } from '../context';
-import type { CsvExportParams } from '../types/api';
-import type { Column } from '../columns/column';
-import type { RowNode } from '../rows/rowNode';
+import type { GridContext } from '../context.js';
+import type { CsvExportParams } from '../types/api.js';
+import type { Column } from '../columns/column.js';
+import type { RowNode } from '../rows/rowNode.js';
 
 /** Serialize the grid's displayed data to CSV text. */
 export function exportCsv<TData>(ctx: GridContext<TData>, params: CsvExportParams = {}): string {

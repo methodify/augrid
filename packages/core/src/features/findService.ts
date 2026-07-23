@@ -1,5 +1,5 @@
-import type { GridContext, IFindService } from '../context';
-import type { Column } from '../columns/column';
+import type { GridContext, IFindService } from '../context.js';
+import type { Column } from '../columns/column.js';
 
 interface Match {
   rowIndex: number;

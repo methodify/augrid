@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { EditingService } from './editingService';
-import { RowNode } from '../rows/rowNode';
-import type { GridOptions } from '../types/gridOptions';
-import type { CellEditorComp, CellEditorParams, ColDef } from '../types/colDef';
+import { createMockContext } from '../test/mockContext.js';
+import { EditingService } from './editingService.js';
+import { RowNode } from '../rows/rowNode.js';
+import type { GridOptions } from '../types/gridOptions.js';
+import type { CellEditorComp, CellEditorParams, ColDef } from '../types/colDef.js';
 
 interface Data {
   name: string;

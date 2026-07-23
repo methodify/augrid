@@ -1,6 +1,6 @@
 {
   "name": "@augrid/react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React wrapper for AuGrid.",
   "license": "MIT",
   "type": "module",
@@ -18,19 +18,26 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.typecheck.json"
-  },
-  "dependencies": {
-    "@augrid/core": "workspace:*"
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "prepack": "pnpm run build"
   },
   "peerDependencies": {
+    "@augrid/core": ">=0.1.1 <0.2",
     "react": ">=18",
     "react-dom": ">=18"
   },
   "devDependencies": {
+    "@augrid/core": "workspace:*",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/methodify/augrid.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/methodify/augrid",
+  "bugs": "https://github.com/methodify/augrid/issues"
 }

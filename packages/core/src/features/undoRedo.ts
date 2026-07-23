@@ -1,5 +1,5 @@
-import type { GridContext, IUndoRedoService } from '../context';
-import type { CellValueChangedEvent } from '../types/events';
+import type { GridContext, IUndoRedoService } from '../context.js';
+import type { CellValueChangedEvent } from '../types/events.js';
 
 interface UndoEntry {
   rowId: string;

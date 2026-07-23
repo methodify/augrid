@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createMockContext } from '../test/mockContext';
-import { GridRenderer } from './renderer';
-import type { GridOptions } from '../types/gridOptions';
+import { createMockContext } from '../test/mockContext.js';
+import { GridRenderer } from './renderer.js';
+import type { GridOptions } from '../types/gridOptions.js';
 
 interface Row {
   id: string;

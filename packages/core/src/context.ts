@@ -1,14 +1,14 @@
-import type { CellPosition, CellRange, RowPinnedPosition, SortModelItem } from './types/base';
-import type { FilterModel, FilterModelMap } from './types/filter';
-import type { GridApi } from './types/api';
-import type { OptionsService } from './options';
-import type { EventService } from './events/eventService';
-import type { ColumnModel } from './columns/columnModel';
-import type { Column } from './columns/column';
-import type { RowNode } from './rows/rowNode';
-import type { IRowModel } from './rows/rowModel';
-import type { GridRenderer } from './render/renderer';
-import type { ValueService } from './values/valueService';
+import type { CellPosition, CellRange, RowPinnedPosition, SortModelItem } from './types/base.js';
+import type { FilterModel, FilterModelMap } from './types/filter.js';
+import type { GridApi } from './types/api.js';
+import type { OptionsService } from './options.js';
+import type { EventService } from './events/eventService.js';
+import type { ColumnModel } from './columns/columnModel.js';
+import type { Column } from './columns/column.js';
+import type { RowNode } from './rows/rowNode.js';
+import type { IRowModel } from './rows/rowModel.js';
+import type { GridRenderer } from './render/renderer.js';
+import type { ValueService } from './values/valueService.js';
 
 /* ----- interaction service contracts (implemented in interaction/, features/) ----- */
 
