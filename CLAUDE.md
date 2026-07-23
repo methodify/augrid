@@ -18,6 +18,11 @@ performance rules) before changing core.
   track the remote and file issues against what they can see — unpushed work
   doesn't exist for them. Keep README/PRODUCT.md scope claims in sync with what
   actually shipped (a consumer read "not built now" and filed for an existing feature).
+- Releases (until npm publish, AUG-16): bump versions, CHANGELOG section, tag `vX.Y.Z`,
+  then `pnpm pack` both packages and attach the tarballs to a GitHub Release —
+  consumers install by asset URL. A bare git tag is NOT consumable (source-only
+  monorepo; AUG-18). Verify a release by npm-installing the tarballs in a scratch
+  project and importing both packages in DOM-less Node.
 
 - Core has ZERO runtime dependencies. Never add one.
 - Strict TS; no `any` in public types (internal casts allowed sparingly).
