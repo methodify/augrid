@@ -38,3 +38,8 @@ performance rules) before changing core.
   leaves the range (found when v0.2.0's react tarball still pinned <0.2 and
   npm refused the install). The release URL smoke test catches this — never
   skip it.
+- Binary/spec formats (xlsx): structural validation is necessary but NOT
+  sufficient. Lenient readers (openpyxl) accept files Excel repairs. Validate
+  by diffing against a known-good producer's output for the same feature, and
+  encode the consumer's semantic rules as tests (e.g. xlsx `activePane` must
+  name a pane the split creates; sheet names must be unique).
