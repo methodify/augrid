@@ -100,6 +100,7 @@ class CellCtrl<TData> {
     if (rangeFlags & RANGE_LEFT) cls += ' au-range-left';
     if (findFlags === 1) cls += ' au-find-match';
     else if (findFlags === 2) cls += ' au-find-match au-find-active';
+    if (node.__loading) cls += ' au-cell-loading';
     cls += this.userClasses(node, column, displayIndex);
     e.className = cls;
     this.applyUserStyle(node, column, displayIndex);
@@ -194,6 +195,19 @@ class CellCtrl<TData> {
   private renderContent(node: RowNode<TData>, column: Column<TData>, rowIndex: number): void {
     const ctx = this.ctx;
     const e = this.elCell;
+
+    // Row still being fetched (infinite/server-side block in flight): render
+    // a skeleton bar so loading reads as "working", not "broken" (AUG-23).
+    if (node.__loading) {
+      if (this.lastContentKey !== '__skeleton') {
+        this.clearContent();
+        const bar = el('span', 'au-skeleton');
+        bar.setAttribute('aria-hidden', 'true');
+        e.appendChild(bar);
+        this.lastContentKey = '__skeleton';
+      }
+      return;
+    }
 
     // Selection checkbox column
     if (column.colId === 'au-selection-col') {

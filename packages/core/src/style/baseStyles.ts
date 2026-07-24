@@ -405,6 +405,28 @@ export const BASE_CSS = `
   box-shadow: 0 6px 24px rgba(0,0,0,.14);
 }
 
+/* loading-row skeleton (infinite / server-side blocks in flight) */
+.au-cell-loading .au-skeleton {
+  display: inline-block;
+  width: 60%;
+  max-width: 120px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg,
+    var(--au-skeleton-color, rgba(140, 150, 170, .16)) 25%,
+    var(--au-skeleton-highlight-color, rgba(140, 150, 170, .32)) 50%,
+    var(--au-skeleton-color, rgba(140, 150, 170, .16)) 75%);
+  background-size: 200% 100%;
+  animation: au-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes au-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .au-cell-loading .au-skeleton { animation: none; }
+}
+
 /* find-in-grid highlight */
 .au-cell.au-find-match { background: var(--au-find-match-color, rgba(250, 204, 21, .3)); }
 .au-cell.au-find-match.au-find-active {

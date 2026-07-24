@@ -252,3 +252,88 @@ describe('ServerSideRowModel + Grid (DOM / write-back)', () => {
     grid.destroy();
   });
 });
+
+describe('ServerSideRowModel loading UX (AUG-23)', () => {
+  /** Datasource that captures requests; tests resolve manually. */
+  function manualDatasource(): {
+    ds: ServerSideDatasource<Row>;
+    pending: ServerSideRowsParams<Row>[];
+  } {
+    const pending: ServerSideRowsParams<Row>[] = [];
+    return { ds: { getRows: (p) => void pending.push(p) }, pending };
+  }
+
+  function manualSetup() {
+    const { ds, pending } = manualDatasource();
+    const { ctx } = createMockContext<Row>({ ...SS_OPTIONS, serverSideDatasource: ds });
+    const model = new ServerSideRowModel<Row>(ctx);
+    ctx.rowModel = model;
+    model.start();
+    return { ctx, model, pending };
+  }
+
+  it('expand shows ONE loading row — never a speculative block — until the first block lands', () => {
+    const { model, pending } = manualSetup();
+    // Root store: a single loading placeholder while block 0 is in flight.
+    expect(model.getRowCount()).toBe(1);
+    expect(model.getRow(0)!.__loading).toBe(true);
+    pending[0]!.success({
+      rowData: [
+        { region: 'East', qty: 50 },
+        { region: 'West', qty: 250 },
+      ],
+      rowCount: 2,
+    });
+    expect(model.getRowCount()).toBe(2);
+    expect(model.getRow(0)!.__loading).toBe(false);
+
+    // Tree expand: exactly one extra row appears (the loading row), not
+    // cacheBlockSize (10 here) blank rows.
+    model.getRow(0)!.setExpanded(true);
+    expect(model.getRowCount()).toBe(3); // 2 regions + 1 loading placeholder
+    const placeholder = model.getRow(1)!;
+    expect(placeholder.__loading).toBe(true);
+    expect(placeholder.group).toBe(false); // no chevron on skeletons
+
+    pending[1]!.success({
+      rowData: [
+        { region: 'East', store: 101, qty: 30 },
+        { region: 'East', store: 'E-2', qty: 20 },
+      ],
+      rowCount: 2,
+    });
+    expect(model.getRowCount()).toBe(4);
+    expect(model.getRow(1)!.__loading).toBe(false);
+    expect(model.getRow(1)!.key).toBe('101');
+  });
+
+  it('a known child count allocates exactly that many skeleton rows on expand', () => {
+    const { model, pending } = manualSetup();
+    pending[0]!.success({ rowData: [{ region: 'East', qty: 50 }], rowCount: 1 });
+    const east = model.getRow(0)!;
+    east.allChildrenCount = 7; // known from a prior load
+    east.setExpanded(true);
+    // 1 region + 7 skeletons, no snap-back when data lands with the same count.
+    expect(model.getRowCount()).toBe(8);
+    for (let i = 1; i <= 7; i++) expect(model.getRow(i)!.__loading).toBe(true);
+  });
+
+  it('renders skeleton bars in loading cells and clears them when data lands (DOM)', () => {
+    const { ds, pending } = manualDatasource();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const grid = new Grid<Row>(host, { ...SS_OPTIONS, serverSideDatasource: ds });
+    grid.getContext().renderer.setViewportSizeForTesting(900, 400);
+    grid.getContext().renderer.renderNow();
+
+    expect(host.querySelectorAll('.au-cell-loading').length).toBeGreaterThan(0);
+    expect(host.querySelectorAll('.au-skeleton').length).toBeGreaterThan(0);
+
+    pending[0]!.success({ rowData: [{ region: 'East', qty: 50 }], rowCount: 1 });
+    grid.getContext().renderer.renderNow();
+    expect(host.querySelectorAll('.au-cell-loading').length).toBe(0);
+    expect(host.querySelectorAll('.au-skeleton').length).toBe(0);
+    expect(host.textContent).toContain('East');
+    grid.destroy();
+  });
+});

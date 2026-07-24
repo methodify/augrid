@@ -3,6 +3,18 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.2.1 — 2026-07-24
+
+- **Server-side expand no longer flashes a block of blank rows** (AUG-23,
+  reported by Plank): a store now allocates ONE loading row until its first
+  block lands (or exactly the known child count when a prior load reported
+  it) instead of a speculative `cacheBlockSize` allocation that pushed
+  content down and snapped back.
+- **Loading skeletons**: rows in in-flight blocks (server-side AND infinite
+  model) render animated skeleton bars (`.au-cell-loading` / `.au-skeleton`,
+  themeable via `--au-skeleton-color` / `--au-skeleton-highlight-color`;
+  honors `prefers-reduced-motion`) instead of blank cells.
+
 ## 0.2.0 — 2026-07-24
 
 **Server-side row model** (`rowModelType: 'serverSide'`) — lazy per-parent

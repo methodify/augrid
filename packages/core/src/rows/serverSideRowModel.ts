@@ -95,6 +95,12 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
     const key = pathKey(path);
     let store = this.stores.get(key);
     if (!store) {
+      // Until the first block lands, show ONE loading row — not a speculative
+      // block. A tree expand's fan-out is usually far smaller than a block;
+      // allocating blockSize blank rows pushed content down and then snapped
+      // back (AUG-23). When the parent's child count is already known (prior
+      // load), allocate exactly that many skeleton rows.
+      const known = parentNode && parentNode.allChildrenCount > 0 ? parentNode.allChildrenCount : 0;
       store = {
         path,
         key,
@@ -102,7 +108,7 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
         parentNode,
         blocks: new Map(),
         rowCount: null,
-        virtualCount: this.blockSize(),
+        virtualCount: known > 0 ? known : 1,
       };
       this.stores.set(key, store);
     } else if (parentNode) {
@@ -440,6 +446,7 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
     node.level = store.level;
     node.parent = store.parentNode;
     node.rowHeight = this.rowH();
+    node.__loading = true;
     return node;
   }
 

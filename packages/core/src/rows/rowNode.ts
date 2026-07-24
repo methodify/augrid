@@ -30,6 +30,8 @@ export class RowNode<TData = unknown> implements IRowNode<TData> {
 
   /** Selection state, managed by SelectionService. */
   __selected = false;
+  /** Placeholder for a row still being fetched (infinite/server-side blocks) — renders as a skeleton. */
+  __loading = false;
   /** Bumped when any cell value changes; cells cache against it. */
   __version = 0;
   /** Position of the leaf in source data order (stable sort tiebreak). */

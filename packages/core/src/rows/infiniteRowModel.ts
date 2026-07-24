@@ -325,6 +325,7 @@ export class InfiniteRowModel<TData = unknown> implements IRowModel<TData> {
     node.rowIndex = index;
     node.rowTop = index * h;
     node.rowHeight = h;
+    node.__loading = true;
     return node;
   }
 }
