@@ -45,6 +45,7 @@ export function createMockContext<TData = unknown>(
     deselectAll: () => {},
     getHeaderState: () => false,
     refresh: () => {},
+    swapNode: () => {},
     destroy: () => {},
   };
   ctx.focus = {

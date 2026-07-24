@@ -76,8 +76,12 @@ export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {
     refreshClientSideRowModel(step) {
       ctx.rowModel.refreshModel?.(step ?? 'group');
     },
-    refreshInfiniteCache() {
-      ctx.rowModel.refreshCache?.();
+    refreshInfiniteCache(params) {
+      const range =
+        params && (params.fromRow != null || params.toRow != null)
+          ? { fromRow: params.fromRow ?? 0, toRow: params.toRow ?? Number.MAX_SAFE_INTEGER }
+          : undefined;
+      ctx.rowModel.refreshCache?.(range);
     },
     purgeInfiniteCache() {
       ctx.rowModel.purgeCache?.();

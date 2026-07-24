@@ -277,3 +277,54 @@ describe('InfiniteRowModel', () => {
     expect(node?.id.startsWith('loading-')).toBe(false);
   });
 });
+
+describe('InfiniteRowModel targeted refresh (AUG-22)', () => {
+  it('refreshCache with a row range refetches only intersecting loaded blocks', () => {
+    const { ds, pending } = manualDatasource();
+    const { model } = setup(ds); // blockSize 10
+    model.start();
+    pending[0]!.success({ rowData: makeRows(0, 10), lastRow: 40 });
+    model.getRow(15); // load block 1
+    pending[1]!.success({ rowData: makeRows(10, 10), lastRow: 40 });
+    model.getRow(25); // load block 2
+    pending[2]!.success({ rowData: makeRows(20, 10), lastRow: 40 });
+    expect(pending).toHaveLength(3);
+
+    // Rows 12-18 live entirely in block 1 → exactly one refetch, for rows 10-20.
+    model.refreshCache({ fromRow: 12, toRow: 18 });
+    expect(pending).toHaveLength(4);
+    expect(pending[3]!.startRow).toBe(10);
+
+    // Spanning 8-22 touches blocks 0, 1, 2.
+    model.refreshCache({ fromRow: 8, toRow: 22 });
+    expect(pending).toHaveLength(7);
+    expect(pending.slice(4).map((p) => p.startRow).sort((a, b) => a - b)).toEqual([0, 10, 20]);
+  });
+
+  it('selection and shift-anchor survive a block refetch by row id', async () => {
+    const { ds, pending } = manualDatasource();
+    const { ctx, model } = setup(ds, { rowSelection: 'multiRow' });
+    const { SelectionService } = await import('../interaction/selectionService.js');
+    ctx.selection = new SelectionService(ctx);
+    model.start();
+    pending[0]!.success({ rowData: makeRows(0, 10), lastRow: 10 });
+
+    const node3 = model.getRow(3)!;
+    ctx.selection.setSelected([node3], true, 'test');
+    expect(ctx.selection.getSelectedNodes().map((n) => n.id)).toEqual(['3']);
+
+    model.refreshCache();
+    pending[1]!.success({
+      rowData: makeRows(0, 10).map((r) => ({ ...r, name: `fresh-${r.id}` })),
+      lastRow: 10,
+    });
+
+    const fresh3 = model.getRow(3)!;
+    expect(fresh3).not.toBe(node3); // new instance…
+    expect(fresh3.isSelected()).toBe(true); // …same selection
+    expect(fresh3.data?.name).toBe('fresh-3'); // …fresh data
+    const selected = ctx.selection.getSelectedNodes();
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toBe(fresh3); // set holds the NEW node, not the stale one
+  });
+});

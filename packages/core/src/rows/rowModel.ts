@@ -46,6 +46,6 @@ export interface IRowModel<TData = unknown> {
   setPageWindow?(start: number, end: number): void;
 
   /* infinite-model extras */
-  refreshCache?(): void;
+  refreshCache?(range?: { fromRow: number; toRow: number }): void;
   purgeCache?(): void;
 }

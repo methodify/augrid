@@ -3,6 +3,20 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.1.3 — 2026-07-24
+
+- **Boot-render cliff fix at high column counts** (found via Plank's AUG-21
+  benchmark request): when a grid boots in an unmeasured container (hidden
+  tab, display:none, not yet laid out), the render fallbacks built up to 501
+  rows × ALL columns of throwaway cells — ~8s at 400 columns. Both fallbacks
+  are now bounded prefixes (~100 rows × ~2400px of columns) that self-heal on
+  the first measured pass. 400-column × 40-group benchmark added to the suite.
+- **Infinite model, targeted refresh** (AUG-22):
+  `api.refreshInfiniteCache({ fromRow, toRow })` refetches only the cached
+  blocks a row range touches; refresh (full or ranged) is in place — rows
+  stay visible until replaced, and row selection now carries across refetch
+  by `getRowId`. Docs: RECIPES "Server-backed scrolling".
+
 ## 0.1.2 — 2026-07-24
 
 - Fix: numeric columns now right-align (cells, headers, inline editor input).

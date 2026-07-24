@@ -81,8 +81,13 @@ export interface GridApi<TData = unknown> {
   getPinnedRow(pinned: 'top' | 'bottom', index: number): IRowNode<TData> | undefined;
   /** Re-run the client-side pipeline from a stage. */
   refreshClientSideRowModel(step?: 'group' | 'filter' | 'aggregate' | 'sort' | 'flatten'): void;
-  /** Infinite model: drop cached blocks and refetch. */
-  refreshInfiniteCache(): void;
+  /**
+   * Infinite model: refetch loaded blocks IN PLACE — rows stay visible until
+   * replaced, so scroll/focus/selection survive. Pass a row range to
+   * invalidate only the blocks it touches (server data changed underneath).
+   */
+  refreshInfiniteCache(params?: { fromRow?: number; toRow?: number }): void;
+  /** Infinite model: drop the whole cache, reset counts, reload from row 0. */
   purgeInfiniteCache(): void;
 
   /* columns */

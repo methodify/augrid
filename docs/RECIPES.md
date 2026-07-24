@@ -221,6 +221,28 @@ createGrid(el, {
 Sort and filter changes purge the cache and re-query with the new model —
 your server owns ordering and filtering.
 
+`getRows` params: `startRow`/`endRow` are ROW OFFSETS (not block indexes;
+`endRow` exclusive, always one `cacheBlockSize` apart), `sortModel` is
+`[{ colId, sort: 'asc' | 'desc' }]`, `filterModel` is the same per-column
+map as `api.getFilterModel()`. Report the total via `lastRow` when known
+(else `-1` and the row count grows speculatively); call `fail()` on error.
+
+### When server data changes underneath the cache
+
+For server-authoritative grids (write-back decompositions, ticking values),
+refresh without tearing anything down:
+
+```ts
+api.refreshInfiniteCache();                          // refetch every cached block
+api.refreshInfiniteCache({ fromRow: 200, toRow: 340 }); // only blocks touching a range
+```
+
+Refresh is IN PLACE: current rows stay visible until each block's replacement
+arrives, scroll/focus survive, and row selection carries across by `getRowId`.
+Use `api.purgeInfiniteCache()` only for "everything changed" resets — it drops
+the cache, resets the row count, and reloads from the top (scroll position is
+not meaningful across a purge).
+
 ## Theming to your design system
 
 ```ts

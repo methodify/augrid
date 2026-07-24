@@ -36,6 +36,8 @@ export interface ISelectionService<TData = unknown> {
   getHeaderState(): boolean | 'indeterminate';
   /** Re-sync after model updates (nodes removed etc.). */
   refresh(): void;
+  /** Transfer selection/anchor from a node to its refetched successor (same id). */
+  swapNode(oldNode: RowNode<TData>, newNode: RowNode<TData>): void;
   destroy(): void;
 }
 

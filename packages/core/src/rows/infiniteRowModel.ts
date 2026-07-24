@@ -159,11 +159,23 @@ export class InfiniteRowModel<TData = unknown> implements IRowModel<TData> {
 
   /* ------------------------------------------------------------------ cache */
 
-  /** Refetch every loaded block; current data stays visible until replaced. */
-  refreshCache(): void {
+  /**
+   * Refetch loaded blocks in place — current data stays visible until each
+   * block's replacement arrives, so scroll/focus/selection survive. With a
+   * range, only blocks intersecting [fromRow, toRow] refetch (targeted
+   * invalidation for server-authoritative data that changed underneath).
+   */
+  refreshCache(range?: { fromRow: number; toRow: number }): void {
+    const size = this.blockSize();
     const loadedIndexes: number[] = [];
     for (const [index, block] of this.blocks) {
-      if (block.state === 'loaded') loadedIndexes.push(index);
+      if (block.state !== 'loaded') continue;
+      if (range) {
+        const first = index * size;
+        const last = first + size - 1;
+        if (last < range.fromRow || first > range.toRow) continue;
+      }
+      loadedIndexes.push(index);
     }
     for (const index of loadedIndexes) this.requestRows(index);
   }
@@ -227,6 +239,15 @@ export class InfiniteRowModel<TData = unknown> implements IRowModel<TData> {
     const getRowId = this.ctx.options.get('getRowId');
     const { rowData, lastRow } = result;
 
+    // Block refresh replaces node instances; carry row state (selection,
+    // anchor) across by id so a refetch is invisible to the user.
+    const oldById = new Map<string, RowNode<TData>>();
+    if (block.state === 'loaded' && getRowId) {
+      for (const old of block.nodes) {
+        if (old) oldById.set(old.id, old);
+      }
+    }
+
     const nodes = new Array<RowNode<TData> | undefined>(size);
     const count = Math.min(rowData.length, size);
     for (let i = 0; i < count; i++) {
@@ -238,6 +259,8 @@ export class InfiniteRowModel<TData = unknown> implements IRowModel<TData> {
       node.rowHeight = h;
       node.rowTop = (startRow + i) * h;
       node.__sourceIndex = startRow + i;
+      const old = id != null ? oldById.get(id) : undefined;
+      if (old) this.ctx.selection.swapNode(old, node);
       nodes[i] = node;
     }
     block.nodes = nodes;

@@ -550,8 +550,8 @@ export class GridRenderer<TData = unknown> {
     if (!ctx.options.is('suppressRowVirtualisation') && this.viewportHeight > 0) {
       first = Math.max(0, model.getRowIndexAtPixel(this.scrollTop) - buffer);
       last = Math.min(rowCount - 1, model.getRowIndexAtPixel(this.scrollTop + this.viewportHeight) + buffer);
-    } else if (rowCount > 500 && !ctx.options.is('suppressRowVirtualisation')) {
-      last = 500; // safety cap when no viewport measured
+    } else if (rowCount > 100 && !ctx.options.is('suppressRowVirtualisation')) {
+      last = 100; // safety cap when no viewport measured (self-heals on first measured pass)
     }
     const visibleNodes: RowNode<TData>[] = [];
     for (let i = first; i <= last; i++) {
@@ -641,7 +641,22 @@ export class GridRenderer<TData = unknown> {
   }
 
   private visibleCenterColumns(center: Column<TData>[]): Column<TData>[] {
-    if (this.ctx.options.is('suppressColumnVirtualisation') || this.viewportWidth <= 0) return center;
+    if (this.ctx.options.is('suppressColumnVirtualisation')) return center;
+    if (this.viewportWidth <= 0) {
+      // Unmeasured viewport (hidden or not-yet-laid-out host): render a
+      // bounded prefix instead of every column — at Plank-scale widths
+      // (400+ columns) an unbounded fallback builds hundreds of thousands
+      // of throwaway cells before the first ResizeObserver tick. The first
+      // measured pass replaces this window.
+      const out: Column<TData>[] = [];
+      let w = 0;
+      for (const c of center) {
+        out.push(c);
+        w += c.actualWidth;
+        if (w > 2400) break;
+      }
+      return out;
+    }
     const from = this.scrollLeft;
     const to = this.scrollLeft + this.viewportWidth;
     const out: Column<TData>[] = [];

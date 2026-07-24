@@ -197,6 +197,21 @@ export class SelectionService<TData = unknown> implements ISelectionService<TDat
     return count === total ? true : 'indeterminate';
   }
 
+  /**
+   * Replace a node object with its refetched successor (same id). The
+   * infinite model swaps node instances on block refresh; selection and the
+   * shift-anchor must follow the id, not the object. No events: selection is
+   * semantically unchanged.
+   */
+  swapNode(oldNode: RowNode<TData>, newNode: RowNode<TData>): void {
+    if (this.selected.has(oldNode)) {
+      this.selected.delete(oldNode);
+      this.selected.add(newNode);
+      newNode.__selected = true;
+    }
+    if (this.anchor === oldNode) this.anchor = newNode;
+  }
+
   refresh(): void {
     let dropped = false;
     for (const node of [...this.selected]) {
