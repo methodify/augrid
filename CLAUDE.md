@@ -33,3 +33,8 @@ performance rules) before changing core.
 - Every public event/option/API method gets typed definitions in `src/types/`.
 - Logic-first: pipeline/interaction logic must be testable without DOM; DOM code thin.
 - Unit tests live next to code as `*.test.ts`.
+- Release checklist gotcha: @augrid/react's peerDependencies range on
+  @augrid/core must be bumped IN THE SAME commit as a version bump that
+  leaves the range (found when v0.2.0's react tarball still pinned <0.2 and
+  npm refused the install). The release URL smoke test catches this — never
+  skip it.

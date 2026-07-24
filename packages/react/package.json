@@ -22,7 +22,7 @@
     "prepack": "pnpm run build"
   },
   "peerDependencies": {
-    "@augrid/core": ">=0.1.1 <0.2",
+    "@augrid/core": ">=0.2.0 <0.3",
     "react": ">=18",
     "react-dom": ">=18"
   },
