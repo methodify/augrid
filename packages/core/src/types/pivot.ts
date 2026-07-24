@@ -9,7 +9,12 @@
 /** One axis step: the source column and the key value at this intersection. */
 export interface PivotKeyPart {
   colId: string;
-  key: string;
+  /**
+   * Client-side groups produce string keys. The server-side model preserves
+   * the server's member values losslessly: numbers stay numbers and a blank
+   * member is `null` (never coerced to '').
+   */
+  key: string | number | null;
 }
 
 export interface PivotCellContext<TData = unknown> {

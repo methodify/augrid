@@ -455,7 +455,7 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
     if (!column.isEditable()) return false;
     const colDef = column.getColDef();
     const editable = colDef.editable;
-    const aggregate = isAggregateTarget(node, column);
+    const aggregate = isAggregateTarget(node, column, this.ctx.rowModel.type === 'serverSide');
     if (typeof editable === 'function') {
       return !!editable({
         api: this.ctx.api,

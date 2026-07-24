@@ -86,6 +86,9 @@ export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {
     purgeInfiniteCache() {
       ctx.rowModel.purgeCache?.();
     },
+    refreshServerSideStore(params) {
+      ctx.rowModel.refreshStores?.(params);
+    },
 
     getColumn(colId: string) {
       return ctx.columnModel.getColumn(colId);

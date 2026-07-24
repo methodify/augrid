@@ -144,7 +144,10 @@ export class ValueService<TData = unknown> {
     // have no single backing field: commits to them are ALWAYS event-routed —
     // regardless of readOnlyEdit — and never mutate data locally. The app
     // applies the change and feeds truth back via applyTransaction/setRowData.
-    if (isAggregateTarget(node, column) || this.ctx.options.is('readOnlyEdit')) {
+    if (
+      isAggregateTarget(node, column, this.ctx.rowModel.type === 'serverSide') ||
+      this.ctx.options.is('readOnlyEdit')
+    ) {
       this.ctx.events.dispatch({ ...base, type: 'cellEditRequest' });
       return true;
     }

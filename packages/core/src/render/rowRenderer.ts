@@ -1,6 +1,6 @@
 import type { GridContext } from '../context.js';
 import type { Column } from '../columns/column.js';
-import type { RowNode } from '../rows/rowNode.js';
+import { isNodeExpandable, type RowNode } from '../rows/rowNode.js';
 import { RANGE_BOTTOM, RANGE_HANDLE, RANGE_IN, RANGE_LEFT, RANGE_RIGHT, RANGE_TOP } from '../context.js';
 import { el } from '../utils/dom.js';
 import { toDisplayString } from '../utils/general.js';
@@ -317,7 +317,7 @@ class CellCtrl<TData> {
     }
     const wrap = el('div', 'au-group-cell');
     wrap.style.paddingLeft = `${Math.max(0, node.level) * INDENT_PX}px`;
-    const expandable = node.group && !node.footer && (node.childrenAfterFilter?.length ?? 0) > 0;
+    const expandable = isNodeExpandable(this.ctx, node);
     const chevron = el('span', 'au-group-expand' + (node.expanded ? ' au-expanded' : '') + (expandable ? '' : ' au-hidden'));
     chevron.setAttribute('data-au-expand', '1');
     chevron.textContent = '▶';
@@ -699,7 +699,7 @@ export class RowBand<TData> {
       row.left.setRowMeta(row.cls, ariaIndex, node.id, displayIndex);
       row.center.setRowMeta(row.cls, ariaIndex, node.id, displayIndex);
       row.right.setRowMeta(row.cls, ariaIndex, node.id, displayIndex);
-      const expandable = node.group && !node.footer && (node.childrenAfterFilter?.length ?? 0) > 0;
+      const expandable = isNodeExpandable(this.ctx, node);
       row.center.setAriaState(
         selectionActive && node.rowPinned == null ? (selected === true ? 'true' : 'false') : null,
         expandable ? (node.expanded ? 'true' : 'false') : null,
@@ -942,7 +942,7 @@ export class FullWidthBand<TData> {
       e.setAttribute('aria-rowindex', String(ariaIndex));
       row.lastAriaIndex = ariaIndex;
     }
-    const expandable = node.group && !node.footer && (node.childrenAfterFilter?.length ?? 0) > 0;
+    const expandable = isNodeExpandable(this.ctx, node);
     if (expandable) e.setAttribute('aria-expanded', node.expanded ? 'true' : 'false');
     else e.removeAttribute('aria-expanded');
     if (selectionActive) e.setAttribute('aria-selected', selected === true ? 'true' : 'false');

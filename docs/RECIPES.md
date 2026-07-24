@@ -171,6 +171,56 @@ Matches restyle via `.au-find-match` / `.au-find-active` (override the
 case-insensitive substring over formatted values; match sets recompute
 automatically on data/filter/sort/column changes while a search is live.
 
+## Server-side row model (lazy trees over big hierarchies)
+
+For hierarchies too large to materialize client-side (a 7-level product tree
+with 240K leaves): children are fetched per parent on expand, block-windowed
+within each parent, with the SERVER computing aggregate values at every grain.
+
+```ts
+createGrid(el, {
+  rowModelType: 'serverSide',
+  cacheBlockSize: 100,                       // block window within each parent
+  columnDefs: [
+    { field: 'region', rowGroup: true },
+    { field: 'store',  rowGroup: true },
+    { field: 'sku' },
+    { field: 'target', aggFunc: 'sum', editable: true },  // aggFunc advisory: server computes
+  ],
+  isServerSideGroup: (d) => d.sku === undefined,          // expandability rides on the row
+  getServerSideGroupKey: (d) => d.store ?? d.region,      // null is a REAL key (blank member)
+  getRowId: (p) => p.data.sku ?? `g:${p.parentKeys?.join('/')}:${p.data.store ?? p.data.region}`,
+  serverSideDatasource: {
+    getRows: async (p) => {
+      // p.groupKeys: raw key path to the parent ([] = root) — numbers and
+      // nulls round-trip losslessly. One query per expansion (per block for
+      // very wide parents via p.startRow/p.endRow).
+      const { rows, total } = await server.children(p.groupKeys, p.startRow, p.endRow,
+                                                    p.sortModel, p.filterModel);
+      p.success({ rowData: rows, rowCount: total });      // omit rowCount while unknown
+    },
+  },
+  // Write-back at ANY grain: group-row commits are ALWAYS event-routed —
+  // e.pivot.rowKeys carries the raw key path; the server decomposes.
+  onCellEditRequest: async (e) => {
+    await server.write(e.pivot!.rowKeys, e.pivot!.valueColId, e.newValue);
+    api.refreshServerSideStore({ groupKeys: e.pivot!.rowKeys.slice(0, -1).map(k => k.key) });
+  },
+});
+```
+
+Notes:
+- Sort/filter changes purge and refetch (server owns both); expanded paths
+  re-open lazily as their parents reload.
+- `api.refreshServerSideStore({ groupKeys, fromRow?, toRow? })` refetches a
+  parent's loaded blocks in place — rows stay visible until replaced,
+  selection carries by `getRowId`. Omit `groupKeys` to refresh every store.
+- `e.pivot.getLeafRows()` on a server-side group returns CACHED leaves only
+  (never fetches) — decomposition belongs to your server, keyed by `rowKeys`.
+- Collapsed stores stay cached; re-expanding is instant.
+- The demo's "Server-Side" page runs this end-to-end, including a null
+  (blank) group member and group-level write-back with decomposition.
+
 ## Persisting user layout
 
 ```ts

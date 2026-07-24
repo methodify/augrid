@@ -20,5 +20,7 @@ export { RowNode } from './rows/rowNode.js';
 export { Column } from './columns/column.js';
 export { ClientSideRowModel } from './rows/clientSideRowModel.js';
 export { InfiniteRowModel } from './rows/infiniteRowModel.js';
+export { ServerSideRowModel } from './rows/serverSideRowModel.js';
+export type * from './types/serverSide.js';
 export { applyTheme, injectStyles, toCssVar } from './style/theme.js';
 export { LIGHT_PARAMS, DARK_PARAMS } from './style/themes.js';

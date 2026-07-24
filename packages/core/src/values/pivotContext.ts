@@ -10,11 +10,18 @@ import { toDisplayString } from '../utils/general.js';
  * (cellEditRequest) and never mutate data locally:
  *  - pivot result (secondary) columns on group rows,
  *  - value columns (aggFunc set) read from aggData on group rows,
- *  - group-header cells (auto group columns) on group rows.
+ *  - group-header cells (auto group columns) on group rows,
+ *  - EVERY group-row cell in the server-side model (values are
+ *    server-computed at the parent's grain; the app owns decomposition).
  * Footers are excluded — total rows are never editable.
  */
-export function isAggregateTarget<TData>(node: RowNode<TData>, column: Column<TData>): boolean {
+export function isAggregateTarget<TData>(
+  node: RowNode<TData>,
+  column: Column<TData>,
+  serverSide = false,
+): boolean {
   if (!node.group || node.footer) return false;
+  if (serverSide) return true;
   if (column.secondary) return true;
   if (column.isAutoGroupCol) return true;
   return column.aggFunc != null && node.data === undefined;
@@ -54,12 +61,19 @@ export function buildPivotCellContext<TData>(
   if (rowKeys.length === 0 && pivotKeys.length === 0 && !node.group) return null;
 
   const pivotKeyTuple = column.secondary ? column.pivotKeys : null;
+  const serverSide = ctx.rowModel.type === 'serverSide';
   return {
     rowKeys,
     pivotKeys,
     valueColId,
     level: Math.max(0, node.level),
-    getLeafRows: () => collectLeafRows(ctx, node, pivotKeyTuple, pivotCols),
+    // Server-side model: leaves may never have been fetched — enumeration is
+    // CACHED-ONLY (documented as partial) and never triggers loads. The edit
+    // event itself needs no leaf materialization: rowKeys carries the path.
+    getLeafRows: () =>
+      serverSide
+        ? collectCachedServerLeaves(ctx, node)
+        : collectLeafRows(ctx, node, pivotKeyTuple, pivotCols),
   };
 }
 
@@ -69,10 +83,33 @@ function buildRowKeys<TData>(node: RowNode<TData>): PivotKeyPart[] {
   // the parent group.
   let cur: RowNode<TData> | null = node.group ? node : (node.parent as RowNode<TData> | null);
   while (cur && cur.group && cur.level >= 0) {
-    parts.push({ colId: cur.field ?? 'au-group-col', key: cur.key ?? '' });
+    // Server-side nodes carry the raw member key (number/null preserved);
+    // client-side group keys are display strings.
+    const key = cur.__serverKey !== undefined ? cur.__serverKey : (cur.key ?? '');
+    parts.push({ colId: cur.field ?? 'au-group-col', key });
     cur = cur.parent as RowNode<TData> | null;
   }
   return parts.reverse();
+}
+
+/** Loaded leaf descendants of a server-side group node (partial by design). */
+function collectCachedServerLeaves<TData>(ctx: GridContext<TData>, node: RowNode<TData>): TData[] {
+  const out: TData[] = [];
+  const prefix = node.__ssPath;
+  if (!prefix) return node.data !== undefined && !node.group ? [node.data] : out;
+  ctx.rowModel.forEachNode((n) => {
+    if (n.group || n.data === undefined) return;
+    // A leaf belongs to this subtree when its parent chain passes through the node.
+    let cur: RowNode<TData> | null = n.parent as RowNode<TData> | null;
+    while (cur) {
+      if (cur === node) {
+        out.push(n.data as TData);
+        return;
+      }
+      cur = cur.parent as RowNode<TData> | null;
+    }
+  });
+  return out;
 }
 
 function collectLeafRows<TData>(

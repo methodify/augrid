@@ -1,6 +1,6 @@
 import type { GridContext, IFocusService } from '../context.js';
 import type { CellPosition, RowPinnedPosition } from '../types/base.js';
-import type { RowNode } from '../rows/rowNode.js';
+import { isNodeExpandable, type RowNode } from '../rows/rowNode.js';
 import { clamp } from '../utils/general.js';
 
 /** Keys that initialise focus on the first cell when nothing is focused yet. */
@@ -441,7 +441,7 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
 
   /** Group row that can be expanded/collapsed (mirrors the renderer's chevron rule). */
   private isExpandableGroup(node: RowNode<TData>): boolean {
-    return node.group && !node.footer && (node.childrenAfterFilter?.length ?? 0) > 0;
+    return isNodeExpandable(this.ctx, node);
   }
 
   /**

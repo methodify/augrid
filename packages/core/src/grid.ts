@@ -8,6 +8,7 @@ import { ValueService } from './values/valueService.js';
 import { ColumnModel } from './columns/columnModel.js';
 import { ClientSideRowModel } from './rows/clientSideRowModel.js';
 import { InfiniteRowModel } from './rows/infiniteRowModel.js';
+import { ServerSideRowModel } from './rows/serverSideRowModel.js';
 import { GridRenderer } from './render/renderer.js';
 import { createGridApi } from './gridApi.js';
 import { injectStyles, applyTheme } from './style/theme.js';
@@ -61,10 +62,13 @@ export class Grid<TData = unknown> {
     ctx.sort = new SortController(ctx);
     ctx.filters = new FilterManager(ctx);
 
+    const rowModelType = ctx.options.get('rowModelType');
     ctx.rowModel =
-      ctx.options.get('rowModelType') === 'infinite'
+      rowModelType === 'infinite'
         ? new InfiniteRowModel(ctx)
-        : new ClientSideRowModel(ctx);
+        : rowModelType === 'serverSide'
+          ? new ServerSideRowModel(ctx)
+          : new ClientSideRowModel(ctx);
 
     ctx.columnModel.setColumnDefs(ctx.options.get('columnDefs') ?? []);
 

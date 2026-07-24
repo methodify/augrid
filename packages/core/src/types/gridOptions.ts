@@ -2,6 +2,7 @@ import type { Density, GridState, RowPinnedPosition } from './base.js';
 import type { AggFunc, CellRendererDef, ColDef, ColDefOrGroup } from './colDef.js';
 import type { GridOptionEventCallbacks } from './events.js';
 import type { GetContextMenuItems } from './menu.js';
+import type { GroupKey, ServerSideDatasource } from './serverSide.js';
 import type { IRowNode } from './rowNode.js';
 import type { GridApi } from './api.js';
 
@@ -97,8 +98,22 @@ export interface GridOptions<TData = unknown> extends GridOptionEventCallbacks<T
   /* data */
   rowData?: TData[] | null;
   getRowId?: (params: { data: TData; level: number; parentKeys?: string[] }) => string;
-  rowModelType?: 'clientSide' | 'infinite';
+  rowModelType?: 'clientSide' | 'infinite' | 'serverSide';
   datasource?: Datasource<TData>;
+  /** Server-side model: per-parent lazy datasource. */
+  serverSideDatasource?: ServerSideDatasource<TData>;
+  /**
+   * Server-side model: is this row a group (expandable)? Computed from the
+   * row data — never a per-node server probe. Default: rows above the leaf
+   * level of the rowGroup hierarchy are groups.
+   */
+  isServerSideGroup?: (data: TData) => boolean;
+  /**
+   * Server-side model: the row's group key. Default: the row's value for the
+   * grouped field at its level. `null` is a real key (blank member), distinct
+   * from '' and from missing.
+   */
+  getServerSideGroupKey?: (data: TData) => GroupKey;
   /** Infinite model: rows per block (default 100). */
   cacheBlockSize?: number;
   /** Infinite model: max blocks kept in cache (default 10). */

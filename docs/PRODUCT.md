@@ -123,9 +123,15 @@ checkboxes, Row Groups / Values / Column Labels drag-drop zones) and filters pan
 **Find-in-grid**: `setFindText`/`findNext`/`findPrevious` over formatted values with
 match highlighting and a `findChanged` event.
 
+**Server-side row model** (`rowModelType: 'serverSide'`): per-parent lazy group
+expansion for huge hierarchies — one datasource call per expansion (block-windowed
+within wide parents), raw group keys (`string | number | null`, blanks preserved),
+server-computed aggregates at every grain, group-row write-back event-routed with
+the raw key path, in-place store refresh (`refreshServerSideStore`).
+
 ### v1.x roadmap (documented, not built now)
 
-Server-side row model with lazy group expansion; Excel export (xlsx); master/detail rows;
+Excel export (xlsx); master/detail rows;
 row dragging (managed + to external targets); status bar; cell spanning; integrated
 charts; Angular, Vue, Svelte wrappers; RTL; localization bundles.
 

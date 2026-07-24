@@ -8,7 +8,7 @@ export type PipelineStep = 'group' | 'filter' | 'pivot' | 'aggregate' | 'sort' |
  * *display* indices over the currently visible (flattened, page-windowed) rows.
  */
 export interface IRowModel<TData = unknown> {
-  readonly type: 'clientSide' | 'infinite';
+  readonly type: 'clientSide' | 'infinite' | 'serverSide';
 
   start(): void;
   destroy(): void;
@@ -47,5 +47,17 @@ export interface IRowModel<TData = unknown> {
 
   /* infinite-model extras */
   refreshCache?(range?: { fromRow: number; toRow: number }): void;
+  /**
+   * Can this row expand/collapse? Models that know expandability without
+   * materialized children (server-side) implement this; when absent, callers
+   * fall back to the childrenAfterFilter check.
+   */
+  isRowExpandable?(node: RowNode<TData>): boolean;
+  /** Server-side model: refetch a store's loaded blocks in place. */
+  refreshStores?(params?: {
+    groupKeys?: (string | number | null)[];
+    fromRow?: number;
+    toRow?: number;
+  }): void;
   purgeCache?(): void;
 }

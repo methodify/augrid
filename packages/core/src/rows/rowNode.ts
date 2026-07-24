@@ -38,6 +38,14 @@ export class RowNode<TData = unknown> implements IRowNode<TData> {
   __groupPath: string | null = null;
   /** Tree data: full path. */
   __treePath: string[] | null = null;
+  /**
+   * Server-side model: this node's raw group key (string | number | null —
+   * null is a real blank member, distinct from "no key"). `node.key` holds
+   * the display string; write-back coordinates use this raw value.
+   */
+  __serverKey: string | number | null | undefined = undefined;
+  /** Server-side model: full raw key path from root to (and including) this node. */
+  __ssPath: (string | number | null)[] | null = null;
 
   private ctx: GridContext<TData>;
 
@@ -94,4 +102,14 @@ export class RowNode<TData = unknown> implements IRowNode<TData> {
     this.__groupPath = joinGroupPath(parts);
     return this.__groupPath;
   }
+}
+
+/**
+ * Can this row expand/collapse? The row model wins when it knows (server-side
+ * model: expandability rides on the row, no materialized children); the
+ * client-side fallback checks filtered children.
+ */
+export function isNodeExpandable<TData>(ctx: GridContext<TData>, node: RowNode<TData>): boolean {
+  if (ctx.rowModel.isRowExpandable) return ctx.rowModel.isRowExpandable(node);
+  return node.group && !node.footer && (node.childrenAfterFilter?.length ?? 0) > 0;
 }

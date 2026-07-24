@@ -89,6 +89,17 @@ export interface GridApi<TData = unknown> {
   refreshInfiniteCache(params?: { fromRow?: number; toRow?: number }): void;
   /** Infinite model: drop the whole cache, reset counts, reload from row 0. */
   purgeInfiniteCache(): void;
+  /**
+   * Server-side model: refetch loaded blocks IN PLACE (rows stay visible
+   * until replaced; selection carries by getRowId). `groupKeys` targets one
+   * parent's children (null/number members round-trip exactly); omit to
+   * refresh every store. `fromRow`/`toRow` are offsets WITHIN the parent.
+   */
+  refreshServerSideStore(params?: {
+    groupKeys?: (string | number | null)[];
+    fromRow?: number;
+    toRow?: number;
+  }): void;
 
   /* columns */
   getColumn(colId: string): IColumn<TData> | undefined;

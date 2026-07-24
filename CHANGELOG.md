@@ -3,6 +3,32 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.2.0 — 2026-07-24
+
+**Server-side row model** (`rowModelType: 'serverSide'`) — lazy per-parent
+group expansion for hierarchies too large to materialize (AUG-8/AUG-20;
+contract co-designed with Plank):
+
+- One `serverSideDatasource.getRows` per expansion, block-windowed within
+  each parent (`cacheBlockSize`) for very wide parents.
+- Raw group keys: `GroupKey = string | number | null` — blank members are
+  `null`, never conflated with `''`; paths round-trip losslessly through
+  expansion state, store cache keys, and `refreshServerSideStore`.
+- Expandability rides on the row (`isServerSideGroup(data)`), no per-node
+  probes; `getServerSideGroupKey(data)` supplies raw keys.
+- Group rows carry SERVER-computed aggregates (`valueCols[].aggFunc` is
+  advisory/optional; the grid never re-aggregates). `rowCount` is honest:
+  exact when reported, speculative growth otherwise — never synthesized.
+- Write-back at any grain: every group-row commit is event-routed
+  (`cellEditRequest`) with `pivot.rowKeys` = the raw key path.
+  `PivotKeyPart.key` widened to `string | number | null`.
+  `getLeafRows()` on server-side groups returns cached leaves only.
+- `api.refreshServerSideStore({ groupKeys?, fromRow?, toRow? })`: in-place
+  refetch; selection carries across by `getRowId`. Sort/filter changes purge
+  and refetch; expanded paths re-open lazily. Collapsed stores stay cached.
+- Demo "Server-Side" page: Region→Store→SKU with a null member and
+  group-level write-back with server decomposition.
+
 ## 0.1.3 — 2026-07-24
 
 - **Boot-render cliff fix at high column counts** (found via Plank's AUG-21

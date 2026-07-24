@@ -11,8 +11,8 @@ latest [GitHub Release](https://github.com/methodify/augrid/releases) — works 
 pnpm, yarn, and bun:
 
 ```
-npm add https://github.com/methodify/augrid/releases/download/v0.1.1/augrid-core-0.1.1.tgz \
-        https://github.com/methodify/augrid/releases/download/v0.1.1/augrid-react-0.1.1.tgz
+npm add https://github.com/methodify/augrid/releases/download/v0.2.0/augrid-core-0.2.0.tgz \
+        https://github.com/methodify/augrid/releases/download/v0.2.0/augrid-react-0.2.0.tgz
 ```
 
 Install both together: `@augrid/react` declares `@augrid/core` as a peer dependency.
@@ -123,8 +123,9 @@ loops.
 v0.1 implements the full v1 scope in `docs/PRODUCT.md`, plus (post-v1, in main — see
 CHANGELOG.md): pivot write-back with intersection-keyed `cellEditRequest`, context menu,
 header column menus, side-bar tool panels (columns chooser with group/value/pivot drop
-zones; filters panel), and find-in-grid. Roadmap (v1.x): server-side row model with lazy
-group expansion, Excel export, master/detail, row drag, cell spanning,
+zones; filters panel), find-in-grid, and the server-side row model (lazy per-parent
+group expansion with server-computed aggregates and write-back at any grain).
+Roadmap (v1.x): Excel export, master/detail, row drag, cell spanning,
 Angular/Vue/Svelte wrappers.
 
 MIT — see LICENSE.
