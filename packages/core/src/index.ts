@@ -22,11 +22,9 @@ export { ClientSideRowModel } from './rows/clientSideRowModel.js';
 export { InfiniteRowModel } from './rows/infiniteRowModel.js';
 export { ServerSideRowModel } from './rows/serverSideRowModel.js';
 export type * from './types/serverSide.js';
-export {
-  buildMultiSheetWorkbook,
-  buildWorkbook,
-  downloadWorkbook,
-  XLSX_MIME,
-} from './features/excel/excelExport.js';
+// buildWorkbook is intentionally NOT exported: it needs an internal
+// StyleTable. Consumers compose sheets with api.getSheetDataForExcel() +
+// buildMultiSheetWorkbook(), which carry style specs instead.
+export { buildMultiSheetWorkbook, downloadWorkbook, XLSX_MIME } from './features/excel/excelExport.js';
 export { applyTheme, injectStyles, toCssVar } from './style/theme.js';
 export { LIGHT_PARAMS, DARK_PARAMS } from './style/themes.js';
