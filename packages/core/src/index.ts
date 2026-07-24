@@ -22,5 +22,11 @@ export { ClientSideRowModel } from './rows/clientSideRowModel.js';
 export { InfiniteRowModel } from './rows/infiniteRowModel.js';
 export { ServerSideRowModel } from './rows/serverSideRowModel.js';
 export type * from './types/serverSide.js';
+export {
+  buildMultiSheetWorkbook,
+  buildWorkbook,
+  downloadWorkbook,
+  XLSX_MIME,
+} from './features/excel/excelExport.js';
 export { applyTheme, injectStyles, toCssVar } from './style/theme.js';
 export { LIGHT_PARAMS, DARK_PARAMS } from './style/themes.js';

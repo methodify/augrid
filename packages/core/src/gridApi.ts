@@ -8,6 +8,12 @@ import type { ClientSideRowModel } from './rows/clientSideRowModel.js';
 import type { FilterModel, FilterModelMap } from './types/filter.js';
 import type { GridEventListener, GridEventName } from './types/events.js';
 import { exportCsv, downloadCsv } from './features/csvExport.js';
+import {
+  buildMultiSheetWorkbook,
+  downloadWorkbook,
+  exportExcel,
+  sheetPayload,
+} from './features/excel/excelExport.js';
 import { buildPivotCellContext } from './values/pivotContext.js';
 
 /** Concrete GridApi implementation — thin delegation over the context. */
@@ -384,6 +390,20 @@ export function createGridApi<TData>(ctx: GridContext<TData>): GridApi<TData> {
     },
     getDataAsCsv(params?: CsvExportParams) {
       return exportCsv(ctx, params);
+    },
+
+    async exportDataAsExcel(params) {
+      downloadWorkbook(await exportExcel(ctx, params), params?.fileName ?? 'export.xlsx');
+    },
+    async getDataAsExcel(params) {
+      return exportExcel(ctx, params);
+    },
+    getSheetDataForExcel(params) {
+      return sheetPayload(ctx, params) as never;
+    },
+    async exportMultipleSheetsAsExcel(params) {
+      const bytes = await buildMultiSheetWorkbook(params.sheets as never);
+      downloadWorkbook(bytes, params.fileName ?? 'export.xlsx');
     },
 
     getState(): GridState {

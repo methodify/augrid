@@ -98,6 +98,7 @@ export function KitchenSink({ theme }: PageProps) {
         filter: 'number',
         aggFunc: 'sum',
         editable: true,
+        excelNumberFormat: '#,##0',
         cellEditor: 'number',
         cellClassRules: hot,
         width: 90,
@@ -277,6 +278,34 @@ export function KitchenSink({ theme }: PageProps) {
         <span className="sep" />
         <button onClick={() => api()?.exportDataAsCsv({ fileName: 'augrid-demo.csv' })}>
           Export CSV
+        </button>
+        <button
+          onClick={async () => {
+            const a = api();
+            if (!a) return;
+            setEditInfo('building xlsx…');
+            const t = performance.now();
+            await a.exportDataAsExcel({ fileName: 'augrid-demo.xlsx', sheetName: 'Medals' });
+            setEditInfo(`xlsx exported in ${Math.round(performance.now() - t)}ms`);
+          }}
+        >
+          Export Excel
+        </button>
+        <button
+          onClick={async () => {
+            const a = api();
+            if (!a) return;
+            // Two tabs from one grid: the full view plus just the selection.
+            await a.exportMultipleSheetsAsExcel({
+              fileName: 'augrid-demo-multi.xlsx',
+              sheets: [
+                a.getSheetDataForExcel({ sheetName: 'All rows' }),
+                a.getSheetDataForExcel({ sheetName: 'Selected', onlySelected: true }),
+              ],
+            });
+          }}
+        >
+          Export Excel (2 tabs)
         </button>
         <button onClick={() => api()?.undoCellEditing()}>Undo</button>
         <button onClick={() => api()?.redoCellEditing()}>Redo</button>

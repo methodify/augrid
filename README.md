@@ -124,8 +124,8 @@ v0.1 implements the full v1 scope in `docs/PRODUCT.md`, plus (post-v1, in main â
 CHANGELOG.md): pivot write-back with intersection-keyed `cellEditRequest`, context menu,
 header column menus, side-bar tool panels (columns chooser with group/value/pivot drop
 zones; filters panel), find-in-grid, and the server-side row model (lazy per-parent
-group expansion with server-computed aggregates and write-back at any grain).
-Roadmap (v1.x): Excel export, master/detail, row drag, cell spanning,
-Angular/Vue/Svelte wrappers.
+group expansion with server-computed aggregates and write-back at any grain), and
+zero-dependency Excel (.xlsx) export. Roadmap (v1.x): master/detail, row drag,
+cell spanning, Angular/Vue/Svelte wrappers.
 
 MIT â€” see LICENSE.

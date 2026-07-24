@@ -47,6 +47,70 @@ export interface CsvExportParams {
   suppressFormulaEscaping?: boolean;
 }
 
+export interface ExcelExportParams<TData = unknown> {
+  fileName?: string;
+  /** Worksheet tab name (sanitized: ≤31 chars, no : \ / ? * [ ]). */
+  sheetName?: string;
+  /** Export all visible columns, not just displayed ones (default false). */
+  allColumns?: boolean;
+  /** Only selected rows (default false). */
+  onlySelected?: boolean;
+  skipHeaders?: boolean;
+  /**
+   * Export formatted strings instead of typed values (default false).
+   * Off by default because typed cells let Excel sum, sort, and format —
+   * turn it on when the display string IS the data.
+   */
+  useFormattedValues?: boolean;
+  /** Header row appearance; merged over the default (bold, light fill, rule). */
+  headerStyle?: ExcelHeaderStyle;
+  /** Don't freeze the header row / pinned-left columns. */
+  suppressFreeze?: boolean;
+  /** Don't add an autofilter over the header row. */
+  suppressAutoFilter?: boolean;
+  /** Transform a value on its way into the sheet (return a typed value). */
+  processCellForExcel?: (params: {
+    value: unknown;
+    node: IRowNode<TData>;
+    colId: string;
+  }) => string | number | boolean | Date | null;
+}
+
+export interface ExcelHeaderStyle {
+  bold?: boolean;
+  /** ARGB fill, e.g. 'FFEFF2F7'. */
+  fill?: string;
+  /** ARGB font color, e.g. 'FF1F2937'. */
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+  borderBottom?: boolean;
+}
+
+/**
+ * One sheet's exportable content plus the style specs its cells reference
+ * (cell `styleId`s index into `styleSpecs`). Returned by
+ * `api.getSheetDataForExcel` and accepted by `exportMultipleSheetsAsExcel`,
+ * which re-interns styles so sheets from DIFFERENT grids compose safely.
+ */
+export interface ExcelSheetPayload {
+  sheet: ExcelSheetContent;
+  styleSpecs: ExcelHeaderStyle_[];
+}
+
+/** Structural sheet content; `rows[r][c]` is a typed cell. */
+export interface ExcelSheetContent {
+  name: string;
+  rows: { value: string | number | boolean | Date | null; styleId?: number }[][];
+  columnWidths?: (number | undefined)[];
+  freeze?: { rows: number; cols: number };
+  autoFilterRows?: number;
+}
+
+/** Style spec (superset of ExcelHeaderStyle: also carries number formats). */
+export interface ExcelHeaderStyle_ extends ExcelHeaderStyle {
+  numberFormat?: string;
+}
+
 export interface GridApi<TData = unknown> {
   /* lifecycle */
   destroy(): void;
@@ -221,6 +285,17 @@ export interface GridApi<TData = unknown> {
   /* export */
   exportDataAsCsv(params?: CsvExportParams): void;
   getDataAsCsv(params?: CsvExportParams): string;
+  /** Build and download an .xlsx of the current view. */
+  exportDataAsExcel(params?: ExcelExportParams<TData>): Promise<void>;
+  /** Workbook bytes for the current view (for upload, tests, custom delivery). */
+  getDataAsExcel(params?: ExcelExportParams<TData>): Promise<Uint8Array>;
+  /** This grid's content as a composable sheet payload (see ExcelSheetPayload). */
+  getSheetDataForExcel(params?: ExcelExportParams<TData>): ExcelSheetPayload;
+  /** Download one workbook containing several sheets (any grid can contribute). */
+  exportMultipleSheetsAsExcel(params: {
+    sheets: ExcelSheetPayload[];
+    fileName?: string;
+  }): Promise<void>;
 
   /* state */
   getState(): GridState;

@@ -178,6 +178,12 @@ export interface ColDef<TData = unknown> {
   headerTooltip?: string;
   /** Hide this column's header ⋮ menu button. */
   suppressHeaderMenuButton?: boolean;
+  /**
+   * Excel number-format code applied to this column on xlsx export
+   * (e.g. '#,##0.00', '0.0%', 'yyyy-mm-dd'). Date columns default to
+   * yyyy-mm-dd; everything else defaults to General.
+   */
+  excelNumberFormat?: string;
   /** Named column type(s) from GridOptions.columnTypes to merge in. */
   type?: string | string[];
 

@@ -3,6 +3,29 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.3.0 — 2026-07-24
+
+**Excel (.xlsx) export** (AUG-10) — an in-house, dependency-free writer
+(ZIP container + SpreadsheetML), honoring the zero-runtime-deps rule:
+
+- `api.exportDataAsExcel(params?)` downloads; `api.getDataAsExcel(params?)`
+  returns the bytes. Both async.
+- Typed cells: numbers stay numeric, dates become real Excel dates,
+  booleans become booleans — Excel can sum/sort/filter without a re-import.
+- Per-column number formats via `colDef.excelNumberFormat` (dates default
+  to `yyyy-mm-dd`); styled + frozen header row; pinned-left columns frozen;
+  autofilter; grid column widths carried over.
+- Params: `allColumns`, `onlySelected`, `skipHeaders`, `sheetName`,
+  `headerStyle`, `suppressFreeze`, `suppressAutoFilter`,
+  `useFormattedValues`, `processCellForExcel`.
+- Multi-sheet: `api.getSheetDataForExcel()` returns a composable payload and
+  `api.exportMultipleSheetsAsExcel({ sheets })` merges them — sheets from
+  DIFFERENT grids compose safely (styles are re-interned on merge).
+- DEFLATE via the platform `CompressionStream` when available (~8× smaller),
+  stored entries otherwise; both are valid .xlsx.
+- Validated end-to-end against openpyxl (an independent OOXML reader),
+  including a 100k-row workbook downloaded from a real browser.
+
 ## 0.2.1 — 2026-07-24
 
 - **Server-side expand no longer flashes a block of blank rows** (AUG-23,

@@ -123,6 +123,11 @@ checkboxes, Row Groups / Values / Column Labels drag-drop zones) and filters pan
 **Find-in-grid**: `setFindText`/`findNext`/`findPrevious` over formatted values with
 match highlighting and a `findChanged` event.
 
+**Excel export (xlsx)**: zero-dependency writer (in-house ZIP + OOXML) — typed cells
+(numbers/dates/booleans), per-column number formats, styled + frozen header row,
+frozen pinned columns, autofilter, column widths, multi-sheet workbooks composable
+across grids.
+
 **Server-side row model** (`rowModelType: 'serverSide'`): per-parent lazy group
 expansion for huge hierarchies — one datasource call per expansion (block-windowed
 within wide parents), raw group keys (`string | number | null`, blanks preserved),
@@ -131,8 +136,7 @@ the raw key path, in-place store refresh (`refreshServerSideStore`).
 
 ### v1.x roadmap (documented, not built now)
 
-Excel export (xlsx); master/detail rows;
-row dragging (managed + to external targets); status bar; cell spanning; integrated
+Master/detail rows; row dragging (managed + to external targets); status bar; cell spanning; integrated
 charts; Angular, Vue, Svelte wrappers; RTL; localization bundles.
 
 ## Quality bars (v1 exit criteria)
