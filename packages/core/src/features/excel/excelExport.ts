@@ -9,6 +9,7 @@ import {
   rootRelsXml,
   sanitizeSheetName,
   sheetXml,
+  uniqueSheetNames,
   workbookRelsXml,
   workbookXml,
   type ExcelCell,
@@ -163,7 +164,7 @@ export async function buildWorkbook(
   styles: StyleTable,
 ): Promise<Uint8Array> {
   const strings = new SharedStrings();
-  const names = sheets.map((s, i) => sanitizeSheetName(s.name, `Sheet${i + 1}`));
+  const names = uniqueSheetNames(sheets.map((s) => s.name));
   // Sheet XML must be generated before sharedStrings.xml — it fills the table.
   const sheetParts = sheets.map((s) => sheetXml(s, strings));
 

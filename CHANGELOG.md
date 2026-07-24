@@ -3,6 +3,24 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.3.1 — 2026-07-24
+
+Excel export correctness — two defects that made Excel offer to "repair"
+otherwise-fine workbooks (reported against v0.3.0; lenient readers such as
+openpyxl accept both forms, which is why the first release passed
+validation):
+
+- **Frozen panes**: `activePane` always claimed `bottomRight`, but a pane
+  only exists if its split does. A header-row-only freeze (any grid with no
+  pinned-left columns) must use `bottomLeft`, a column-only freeze
+  `topRight`. Excel logged *"Repaired Records: View from
+  /xl/worksheets/sheet1.xml"*. The `<selection>` now matches the same pane.
+- **Sheet names**: multi-sheet workbooks could emit duplicate names (two
+  `getSheetDataForExcel()` calls without `sheetName` both defaulted to
+  "Sheet1"), which Excel treats as corruption. Names are now deduplicated
+  ("Data", "Data (2)") within the 31-character cap, and leading/trailing
+  apostrophes — also illegal — are stripped.
+
 ## 0.3.0 — 2026-07-24
 
 **Excel (.xlsx) export** (AUG-10) — an in-house, dependency-free writer
