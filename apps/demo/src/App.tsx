@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Density, ThemeSpec } from '@augrid/core';
+import { Overview } from './pages/Overview';
 import { KitchenSink } from './pages/KitchenSink';
 import { WriteBack } from './pages/WriteBack';
 import { Infinite } from './pages/Infinite';
@@ -15,6 +16,7 @@ export interface PageProps {
 }
 
 const PAGES: { hash: string; label: string; Comp: (props: PageProps) => ReactNode }[] = [
+  { hash: 'overview', label: 'Overview', Comp: Overview },
   { hash: 'kitchen', label: 'Kitchen Sink', Comp: KitchenSink },
   { hash: 'writeback', label: 'Write-Back', Comp: WriteBack },
   { hash: 'infinite', label: 'Infinite', Comp: Infinite },

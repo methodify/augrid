@@ -225,3 +225,76 @@ body.demo-dark .demo-results th, body.demo-dark .demo-results td { border-color:
   background: color-mix(in srgb, var(--au-accent-color, #2563eb) 8%, transparent);
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--au-accent-color, #2563eb) 45%, transparent);
 }
+
+/* ---------- Overview (demo-site landing page) ---------- */
+.demo-overview {
+  overflow-y: auto;
+  padding: 28px 32px 40px;
+  display: block;
+}
+
+.ov-hero { max-width: 860px; }
+.ov-hero h2 {
+  font-size: 30px;
+  line-height: 1.2;
+  margin: 0 0 14px;
+  letter-spacing: -0.02em;
+}
+.ov-hero p { font-size: 15px; line-height: 1.6; opacity: .82; margin: 0 0 22px; }
+
+.ov-facts { display: flex; flex-wrap: wrap; gap: 28px; margin-bottom: 24px; }
+.ov-fact { display: flex; flex-direction: column; }
+.ov-fact-value { font-size: 24px; font-weight: 650; letter-spacing: -0.02em; color: #2563eb; }
+body.demo-dark .ov-fact-value { color: #7aa2f7; }
+.ov-fact-label { font-size: 12px; opacity: .65; }
+
+.ov-cta { display: flex; align-items: center; gap: 16px; margin-bottom: 34px; }
+.ov-primary {
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 7px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+.ov-primary:hover { background: #1d4ed8; }
+.ov-link { font-size: 14px; color: inherit; opacity: .75; }
+
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 14px;
+  max-width: 1180px;
+}
+.ov-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-align: left;
+  font: inherit;
+  padding: 15px 16px 14px;
+  border: 1px solid #dde2eb;
+  border-radius: 9px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .12s, transform .12s;
+}
+.ov-card:hover { border-color: #2563eb; transform: translateY(-1px); }
+body.demo-dark .ov-card { background: #1b1f27; border-color: #333a47; }
+body.demo-dark .ov-card:hover { border-color: #7aa2f7; }
+.ov-card-title { font-weight: 650; font-size: 15px; }
+.ov-card-blurb { font-size: 13px; line-height: 1.5; opacity: .75; }
+.ov-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.ov-tag {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(37, 99, 235, .1);
+  color: #2563eb;
+}
+body.demo-dark .ov-tag { background: rgba(122, 162, 247, .15); color: #7aa2f7; }
+
+.ov-footer { margin-top: 30px; font-size: 13px; opacity: .7; max-width: 860px; }
+.ov-footer a { color: inherit; }
