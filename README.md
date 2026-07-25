@@ -6,6 +6,11 @@ prices for — row grouping, aggregation, **pivoting**, cell **range selection**
 handle**, **clipboard**, tree data, set filters, undo/redo — free, in one small,
 zero-dependency package.
 
+### ▶ [Try it live — methodify.github.io/augrid](https://methodify.github.io/augrid/)
+
+1M rows, editable pivots, server-side trees, sparklines, Excel export — the real grid
+running in your browser, no install.
+
 **Installing (pre-npm):** AuGrid is not on npm yet. Install the built tarballs from the
 latest [GitHub Release](https://github.com/methodify/augrid/releases) — works with npm,
 pnpm, yarn, and bun:
