@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { Grid } from '../grid.js';
 import type { ColDef } from '../types/colDef.js';
+import { budget } from './perfBudget.js';
 
 interface Row {
   id: number; a: string; b: string; c: number; d: number; e: number; f: string; g: number;
@@ -49,7 +50,7 @@ it('scroll render passes stay cheap at 100k rows', () => {
   const perPass = (performance.now() - t0) / passes;
   console.log("render pass:", perPass.toFixed(2), "ms (jsdom)");
   // Real browsers run this in ~1-3ms; jsdom is ~5-10x slower. 25ms = regression.
-  expect(perPass).toBeLessThan(25);
+  expect(perPass).toBeLessThan(budget(25));
 
   grid.destroy();
 }, 30_000);

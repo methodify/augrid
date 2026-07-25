@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { Grid } from '../grid.js';
 import type { ColDefOrGroup } from '../types/colDef.js';
+import { budget } from './perfBudget.js';
 
 /**
  * Column-axis stress guard (AUG-21, Plank's shape): ~30+ destination column
@@ -87,7 +88,7 @@ it(`render stays O(viewport) at ${GROUPS * MEASURES} columns in ${GROUPS} groups
   }
   const vertical = (performance.now() - t) / V_PASSES;
   console.log('vertical scroll pass:', vertical.toFixed(2), 'ms (jsdom)');
-  expect(vertical).toBeLessThan(35);
+  expect(vertical).toBeLessThan(budget(35));
 
   // Horizontal scroll passes — the Plank axis: columns AND grouped header
   // cells cycle through the virtualization window.
@@ -99,7 +100,7 @@ it(`render stays O(viewport) at ${GROUPS * MEASURES} columns in ${GROUPS} groups
   }
   const horizontal = (performance.now() - t) / H_PASSES;
   console.log('horizontal scroll pass:', horizontal.toFixed(2), 'ms (jsdom)');
-  expect(horizontal).toBeLessThan(35);
+  expect(horizontal).toBeLessThan(budget(35));
 
   // Full-width sweep left→far-right→left (worst case: every column cycles).
   t = performance.now();
