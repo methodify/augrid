@@ -1,0 +1,62 @@
+name: Demo site
+
+# Builds and publishes apps/demo to GitHub Pages. Also the repo's build gate:
+# tests and typecheck run first, so a red main never reaches the demo site.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; let a newer commit supersede an in-flight run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Gate: the demo is only worth publishing if the grid actually works.
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      # Build the packages first — the production demo build resolves
+      # @augrid/* to dist, so this also proves the published artifacts work.
+      - run: pnpm build
+      - run: pnpm --filter demo build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/demo/dist
+
+  deploy:
+    # Pull requests get the gate but never publish.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
