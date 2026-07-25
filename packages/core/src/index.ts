@@ -22,6 +22,7 @@ export { ClientSideRowModel } from './rows/clientSideRowModel.js';
 export { InfiniteRowModel } from './rows/infiniteRowModel.js';
 export { ServerSideRowModel } from './rows/serverSideRowModel.js';
 export type * from './types/serverSide.js';
+export type * from './types/sparkline.js';
 // buildWorkbook is intentionally NOT exported: it needs an internal
 // StyleTable. Consumers compose sheets with api.getSheetDataForExcel() +
 // buildMultiSheetWorkbook(), which carry style specs instead.

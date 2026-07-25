@@ -1,6 +1,10 @@
 import type { GridContext } from '../context.js';
 import type { Column } from '../columns/column.js';
 import { isNodeExpandable, type RowNode } from '../rows/rowNode.js';
+import { SparklineCell } from '../features/sparkline/sparklineRenderer.js';
+
+/** Cell padding allowance so the mark never touches the cell border. */
+const SPARKLINE_INSET = 8;
 import { RANGE_BOTTOM, RANGE_HANDLE, RANGE_IN, RANGE_LEFT, RANGE_RIGHT, RANGE_TOP } from '../context.js';
 import { el } from '../utils/dom.js';
 import { toDisplayString } from '../utils/general.js';
@@ -12,6 +16,7 @@ const INDENT_PX = 20;
 class CellCtrl<TData> {
   readonly elCell: HTMLElement;
   private valueSpan: HTMLElement | null = null;
+  private sparkline: SparklineCell | null = null;
   // Change detection uses plain field comparisons (no per-frame string allocs).
   private dirty = true;
   private lastNode: RowNode<TData> | null = null;
@@ -189,6 +194,7 @@ class CellCtrl<TData> {
     }
     this.elCell.textContent = '';
     this.valueSpan = null;
+    this.sparkline = null;
     this.handleEl = null;
   }
 
@@ -239,6 +245,31 @@ class CellCtrl<TData> {
     const value = ctx.values.getValue(node, column);
     const formatted = ctx.values.formatValue(node, column, value);
     const def = column.getColDef();
+
+    // Sparkline columns: an SVG mark drawn from the cell's series. Sized from
+    // known geometry (never a layout read) and skipped entirely on group rows
+    // that carry no series of their own.
+    if (def.sparkline && (!node.group || node.data !== undefined || node.aggData)) {
+      if (this.lastContentKey !== '__sparkline' || !this.sparkline) {
+        this.clearContent();
+        this.sparkline = new SparklineCell();
+        e.appendChild(this.sparkline.root);
+        this.lastContentKey = '__sparkline';
+      }
+      const shared =
+        def.sparkline.domain === 'shared'
+          ? (ctx.renderer.getSparklineDomain?.(column.colId) ?? null)
+          : null;
+      this.sparkline.update(
+        value,
+        def.sparkline,
+        column.actualWidth - SPARKLINE_INSET,
+        node.rowHeight - SPARKLINE_INSET,
+        shared,
+      );
+      return;
+    }
+
     const renderer = def.cellRenderer;
 
     if (renderer && (!node.group || node.footer || node.data !== undefined || column.secondary || (node.aggData && column.colId in (node.aggData ?? {})))) {

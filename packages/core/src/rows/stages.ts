@@ -2,6 +2,7 @@ import type { GridContext } from '../context.js';
 import type { Column } from '../columns/column.js';
 import { RowNode } from './rowNode.js';
 import { defaultCompare, toDisplayString } from '../utils/general.js';
+import { summarize, toSeries } from '../features/sparkline/sparkline.js';
 import type { AggFuncParams, ColDef } from '../types/colDef.js';
 
 export const PIVOT_SEP = '\u001f';
@@ -423,14 +424,38 @@ export function runSortStage<TData>(
     return ctx.values.getValue(node, col);
   };
 
+  /**
+   * Sparkline columns sort by a summary of their series. Reducing inside the
+   * comparator would re-parse both series on every one of O(n log n)
+   * comparisons — at 100k rows that is millions of passes over the data. So
+   * each node's summary is computed ONCE here and looked up during the sort.
+   */
+  const sparklineSummaries = new Map<Column<TData>, WeakMap<RowNode<TData>, number | null>>();
+  const summaryFor = (node: RowNode<TData>, spec: SortSpec<TData>, raw: unknown): number | null => {
+    let perNode = sparklineSummaries.get(spec.column);
+    if (!perNode) {
+      perNode = new WeakMap();
+      sparklineSummaries.set(spec.column, perNode);
+    }
+    const cached = perNode.get(node);
+    if (cached !== undefined) return cached;
+    const by = spec.column.getColDef().sparkline!.sortBy ?? 'last';
+    const value = summarize(toSeries(raw).values, by);
+    perNode.set(node, value);
+    return value;
+  };
+
   const compare = (a: RowNode<TData>, b: RowNode<TData>): number => {
     for (const spec of sortSpecs) {
       const av = valueFor(a, spec);
       const bv = valueFor(b, spec);
-      const userCmp = spec.column.getColDef().comparator;
+      const colDef = spec.column.getColDef();
+      const userCmp = colDef.comparator;
       let c: number;
       if (userCmp) c = userCmp(av, bv, a, b, spec.direction === 'desc');
-      else c = defaultCompare(av, bv, accented);
+      else if (colDef.sparkline) {
+        c = defaultCompare(summaryFor(a, spec, av), summaryFor(b, spec, bv), accented);
+      } else c = defaultCompare(av, bv, accented);
       if (c !== 0) return spec.direction === 'desc' ? -c : c;
     }
     return a.__sourceIndex - b.__sourceIndex;

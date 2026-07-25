@@ -128,6 +128,11 @@ match highlighting and a `findChanged` event.
 frozen pinned columns, autofilter, column widths, multi-sheet workbooks composable
 across grids.
 
+**Cell visuals — sparklines**: `colDef.sparkline` renders line/area/column/win-loss
+marks in-cell from an array-valued cell; per-cell, column-shared, or fixed Y domains;
+gaps as breaks; markers and reference lines; series-summary sorting (incl. trend
+slope); constant DOM node count per cell.
+
 **Server-side row model** (`rowModelType: 'serverSide'`): per-parent lazy group
 expansion for huge hierarchies — one datasource call per expansion (block-windowed
 within wide parents), raw group keys (`string | number | null`, blanks preserved),

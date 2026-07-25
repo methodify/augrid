@@ -3,6 +3,29 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.4.0 — 2026-07-25
+
+**Sparklines** — phase 1 of the cell-visuals surface (AUG-25 design, AUG-26).
+Declare `colDef.sparkline`; the cell value is the series.
+
+- Marks: `line`, `area`, `column`, `winLoss`, with first/last/min/max
+  markers, a reference rule, and per-polarity fills at equal visual weight.
+- **Scale is an explicit choice**: `domain: 'auto'` (per cell — shape, the
+  default) | `'shared'` (one scale across the column — magnitude, making rows
+  comparable) | `[min, max]`. Documented plainly, because a column of
+  auto-scaled sparklines *looks* comparable and isn't.
+- Gaps are real: `null`/`NaN` break the line instead of reading as zero.
+  Flat series render centered rather than collapsed on an edge.
+- Series may be `number[]` or `{x, y}[]` (x as number or `Date`) so irregular
+  time axes plot at true spacing.
+- **Sorting an array column now means something**: `sortBy: 'last' | 'first' |
+  'min' | 'max' | 'mean' | 'sum' | 'slope'` (default `'last'`); `'slope'` is
+  the least-squares trend. Summaries are memoized per row per sort.
+- Clipboard and CSV emit the underlying series, not `[object Object]`.
+- Each cell is one SVG with a **constant node count regardless of series
+  length**; measured 100k rows × 4 sparkline columns at ~1.3 ms/scroll frame.
+- Per-cell `aria-label` summary (overridable); themeable via `--au-sparkline-*`.
+
 ## 0.3.1 — 2026-07-24
 
 Excel export correctness — two defects that made Excel offer to "repair"

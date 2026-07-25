@@ -323,6 +323,21 @@ export class ClipboardService<TData = unknown> implements IClipboardService<TDat
 function stringify(value: unknown): string {
   if (value == null) return '';
   if (value instanceof Date) return value.toISOString().slice(0, 10);
+  // Sparkline series: emit the underlying numbers (space-separated so they
+  // survive a comma/tab delimiter) rather than '[object Object]'.
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => {
+        if (v == null) return '';
+        if (typeof v === 'number') return String(v);
+        if (typeof v === 'object' && 'y' in (v as Record<string, unknown>)) {
+          const y = (v as { y: unknown }).y;
+          return y == null ? '' : String(y);
+        }
+        return String(v);
+      })
+      .join(' ');
+  }
   return String(value);
 }
 

@@ -405,6 +405,25 @@ export const BASE_CSS = `
   box-shadow: 0 6px 24px rgba(0,0,0,.14);
 }
 
+/* in-cell sparklines */
+.au-sparkline {
+  display: block;
+  overflow: visible;
+  pointer-events: none; /* the cell owns click/selection, not the mark */
+}
+.au-sparkline-marker {
+  fill: var(--au-sparkline-marker-color, var(--au-accent-color, #2563eb));
+  stroke: var(--au-background-color, #fff);
+  stroke-width: .75;
+}
+.au-sparkline-marker-min { fill: var(--au-sparkline-min-color, #dc2626); }
+.au-sparkline-marker-max { fill: var(--au-sparkline-max-color, #16a34a); }
+.au-sparkline-reference {
+  stroke: var(--au-sparkline-reference-color, rgba(120, 130, 150, .55));
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
 /* loading-row skeleton (infinite / server-side blocks in flight) */
 .au-cell-loading .au-skeleton {
   display: inline-block;

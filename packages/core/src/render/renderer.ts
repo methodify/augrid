@@ -7,6 +7,7 @@ import { el, closestWithAttr } from '../utils/dom.js';
 import { clamp } from '../utils/general.js';
 import type { CellPosition } from '../types/base.js';
 import type { ClientSideRowModel } from '../rows/clientSideRowModel.js';
+import { SparklineDomains } from '../features/sparkline/sparklineDomains.js';
 
 interface CellHit<TData> {
   node: RowNode<TData>;
@@ -54,6 +55,8 @@ export class GridRenderer<TData = unknown> {
   private ePaging!: HTMLElement;
   private eMain!: HTMLElement;
   private eSideBarHost!: HTMLElement;
+  /** Created on first `domain: 'shared'` request. */
+  private sparklineDomains: SparklineDomains<TData> | null = null;
   private eFullWidthWrap!: HTMLElement;
   private eFullWidthContainer!: HTMLElement;
 
@@ -210,6 +213,15 @@ export class GridRenderer<TData = unknown> {
   /** Host element the SideBarService fills (display managed by the service). */
   getSideBarHost(): HTMLElement {
     return this.eSideBarHost;
+  }
+
+  /**
+   * Column-wide sparkline extent for `domain: 'shared'`. Built lazily on
+   * first use so columns that don't ask never pay the row pass.
+   */
+  getSparklineDomain(colId: string): { min: number; max: number } | null {
+    this.sparklineDomains ??= new SparklineDomains(this.ctx);
+    return this.sparklineDomains.get(colId);
   }
 
   /* ------------------------------------------------------------- observers */
@@ -1012,6 +1024,8 @@ export class GridRenderer<TData = unknown> {
 
   destroy(): void {
     this.destroyed = true;
+    this.sparklineDomains?.destroy();
+    this.sparklineDomains = null;
     for (const type of GridRenderer.HEADER_STRUCTURE_EVENTS) {
       this.ctx.events.removeEventListener(type, this.onColumnStructureChanged);
     }

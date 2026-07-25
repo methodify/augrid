@@ -3,6 +3,7 @@ import type { IRowNode } from './rowNode.js';
 import type { IColumn } from './column.js';
 import type { GridApi } from './api.js';
 import type { PivotCellContext } from './pivot.js';
+import type { SparklineOptions } from './sparkline.js';
 
 /* ------------------------------------------------------------------ params */
 
@@ -232,6 +233,12 @@ export interface ColDef<TData = unknown> {
   valueParser?: (params: ValueParserParams<TData>) => unknown;
 
   cellRenderer?: CellRendererDef<TData>;
+  /**
+   * Render this column's cells as sparklines. The cell value must be an array
+   * of numbers (project one with `valueGetter`). Takes precedence over
+   * `cellRenderer`.
+   */
+  sparkline?: SparklineOptions;
   cellRendererParams?: unknown;
   cellClass?: CellClassValue<TData>;
   cellClassRules?: Record<string, (params: CellClassParams<TData>) => boolean>;

@@ -277,6 +277,70 @@ Notes:
   string table and Excel never parses it as a formula.
 - Group rows are skipped (leaf data only), matching CSV export.
 
+## Sparklines (in-cell visuals)
+
+Declare `colDef.sparkline` and give the cell a series — the value is an array
+of numbers, usually projected with a `valueGetter`:
+
+```ts
+{
+  colId: 'trend',
+  headerName: '13-wk demand',
+  valueGetter: (p) => p.data.weeklyUnits,        // number[]
+  sparkline: {
+    type: 'line',                                 // 'line' | 'area' | 'column' | 'winLoss'
+    markers: { last: true, min: true, max: true },
+    referenceValue: 0,                            // dashed rule (target / zero)
+    sortBy: 'slope',                              // see "Sorting" below
+  },
+}
+```
+
+### Scale: shape vs magnitude (read this one)
+
+```ts
+sparkline: { domain: 'auto' }          // default — each cell scales to itself
+sparkline: { domain: 'shared' }        // one scale across the whole column
+sparkline: { domain: [0, 500] }        // fixed
+```
+
+`'auto'` shows each row's **shape**, which is what a sparkline traditionally
+means — but cells in the column are then **not comparable to each other**,
+even though stacked in a column they look like they are. Use `'shared'` when
+the question is "which row is bigger", `'auto'` when it's "which row is
+trending". `'shared'` costs one pass over the row data per model update, so
+it is opt-in.
+
+Gaps are real: `null` / `NaN` break the line rather than reading as zero — a
+missing week is not a zero week.
+
+### Sorting, clipboard, export
+
+An array-valued column has no natural order, so sparkline columns sort by a
+**summary** of the series — `sortBy: 'last' | 'first' | 'min' | 'max' |
+'mean' | 'sum' | 'slope'` (default `'last'`). `'slope'` is the least-squares
+trend, i.e. "who is rising fastest". Summaries are computed once per row per
+sort, not per comparison.
+
+Copying or exporting a sparkline cell yields the underlying numbers
+(space-separated), never `[object Object]`.
+
+### Notes
+
+- Each cell is one small SVG whose node count is **constant regardless of
+  series length** (the whole series is a single path), recycled with the cell.
+  Measured: 100k rows × 4 sparkline columns scrolls at ~1.3 ms/frame.
+- Series may also be `{x, y}[]` — with `x` (a number or `Date`), points are
+  positioned by their real x, so irregular time axes plot honestly.
+- Every cell carries an `aria-label` summary ("13 points, up from 4 to 19,
+  min 2, max 22"); override with `ariaLabel`.
+- Theming: `--au-sparkline-color`, `--au-sparkline-fill`,
+  `--au-sparkline-bar-color`, `--au-sparkline-negative-color`,
+  `--au-sparkline-min-color`, `--au-sparkline-max-color`,
+  `--au-sparkline-reference-color`.
+- The demo's "Sparklines" page shows the same demand series under both
+  scaling modes side by side.
+
 ## Persisting user layout
 
 ```ts

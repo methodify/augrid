@@ -43,7 +43,20 @@ export function exportCsv<TData>(ctx: GridContext<TData>, params: CsvExportParam
 }
 
 function rawToString(value: unknown): string {
-  return value == null ? '' : String(value);
+  if (value == null) return '';
+  // Sparkline series export as their numbers, not '[object Object]'.
+  if (Array.isArray(value)) {
+    return value
+      .map((v) =>
+        v == null
+          ? ''
+          : typeof v === 'object' && 'y' in (v as Record<string, unknown>)
+            ? String((v as { y: unknown }).y ?? '')
+            : String(v),
+      )
+      .join(' ');
+  }
+  return String(value);
 }
 
 /**

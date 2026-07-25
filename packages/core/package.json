@@ -1,6 +1,6 @@
 {
   "name": "@augrid/core",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "AuGrid \u2014 a free, high-performance data grid. Framework-agnostic core.",
   "license": "MIT",
   "type": "module",

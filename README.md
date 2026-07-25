@@ -125,7 +125,8 @@ CHANGELOG.md): pivot write-back with intersection-keyed `cellEditRequest`, conte
 header column menus, side-bar tool panels (columns chooser with group/value/pivot drop
 zones; filters panel), find-in-grid, and the server-side row model (lazy per-parent
 group expansion with server-computed aggregates and write-back at any grain), and
-zero-dependency Excel (.xlsx) export. Roadmap (v1.x): master/detail, row drag,
-cell spanning, Angular/Vue/Svelte wrappers.
+zero-dependency Excel (.xlsx) export, and in-cell sparklines. Roadmap (v1.x):
+more cell visuals (bullet/data bar/delta), master/detail, row drag, cell spanning,
+Angular/Vue/Svelte wrappers.
 
 MIT — see LICENSE.
