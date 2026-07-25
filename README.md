@@ -16,8 +16,8 @@ latest [GitHub Release](https://github.com/methodify/augrid/releases) — works 
 pnpm, yarn, and bun:
 
 ```
-npm add https://github.com/methodify/augrid/releases/download/v0.2.0/augrid-core-0.2.0.tgz \
-        https://github.com/methodify/augrid/releases/download/v0.2.0/augrid-react-0.2.0.tgz
+npm add https://github.com/methodify/augrid/releases/download/v0.4.0/augrid-core-0.4.0.tgz \
+        https://github.com/methodify/augrid/releases/download/v0.4.0/augrid-react-0.4.0.tgz
 ```
 
 Install both together: `@augrid/react` declares `@augrid/core` as a peer dependency.
@@ -74,7 +74,9 @@ import { AuGrid, reactComponent } from '@augrid/react';
 
 - **Performance**: DOM row+column virtualization with element recycling, rAF-batched writes,
   zero layout reads in the scroll path, incremental pipeline recompute, transactions with
-  `getRowId` diffing, async transaction batching. 1M rows scroll smoothly.
+  `getRowId` diffing, async transaction batching. O(viewport) DOM at any row count —
+  measured ~6ms per render pass at 100k rows (see the Benchmark demo; very large
+  row counts are tracked in AUG-31).
 - **Data**: client-side row model (sort → filter → group → aggregate → pivot → flatten) and
   infinite (block-cached server) row model behind one `RowModel` interface.
 - **Columns**: groups, pinning, drag reorder, drag/auto resize, flex, types ladder, state

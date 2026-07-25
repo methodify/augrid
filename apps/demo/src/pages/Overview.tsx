@@ -76,7 +76,7 @@ const DEMOS: Demo[] = [
 const FACTS: { value: string; label: string }[] = [
   { value: '0', label: 'runtime dependencies' },
   { value: '~47 kB', label: 'core, min+gzip' },
-  { value: '1M', label: 'rows, smooth scroll' },
+  { value: '1M', label: 'rows, virtualized' },
   { value: 'MIT', label: 'every feature, free' },
 ];
 
