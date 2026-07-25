@@ -3,6 +3,27 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.5.0 — 2026-07-25
+
+**Planning marks** — cell visuals phase 2 (AUG-27), on phase 1's scale engine.
+
+- **`bullet`**: actual vs `target` (a number or a function of the row) with
+  optional qualitative `bands` — the "did we hit plan?" mark.
+- **`bar`**: Excel-style data bar. Grows left/right of a common origin when
+  the domain spans zero, so sign shows in the shape and not only the colour.
+- **`delta`**: signed change against a `baseline`. Scales over the column's
+  CHANGES rather than its raw values, so magnitudes are comparable.
+- **`band`**: min/max envelope with the actual line over it (forecast cone),
+  from `{ y, low, high }[]` data; the envelope is included in the domain.
+- Scalar marks use the column-wide domain automatically — they exist to
+  compare rows, and a per-cell scale would make every bar full width.
+- **`showValue`** composition: a number beside the mark, formatted through
+  the column's own `valueFormatter` (`'value'` for scalar marks, or any
+  series summary). `valuePosition`, `valueWidth`.
+- Theming: `--au-sparkline-band-color`, `--au-sparkline-target-color`
+  (the target tick follows the foreground colour, so it stays legible in
+  dark themes).
+
 ## 0.4.0 — 2026-07-25
 
 **Sparklines** — phase 1 of the cell-visuals surface (AUG-25 design, AUG-26).

@@ -276,6 +276,9 @@ export interface Series {
   values: (number | null)[];
   /** Explicit x positions when the data carried them, else null. */
   xs: (number | null)[] | null;
+  /** Envelope bounds for the `band` mark, when the data carried them. */
+  lows: (number | null)[] | null;
+  highs: (number | null)[] | null;
 }
 
 /**
@@ -284,43 +287,69 @@ export interface Series {
  * misconfigured column renders blank instead of throwing in the scroll path.
  */
 export function toSeries(value: unknown): Series {
-  if (!Array.isArray(value)) return { values: [], xs: null };
+  if (!Array.isArray(value)) return { values: [], xs: null, lows: null, highs: null };
   const values: (number | null)[] = [];
   const xs: (number | null)[] = [];
+  const lows: (number | null)[] = [];
+  const highs: (number | null)[] = [];
   let sawX = false;
+  let sawBounds = false;
+
+  const num = (v: unknown): number | null => {
+    // null/undefined/'' are GAPS, not zero — Number(null) === 0 would silently
+    // turn a missing bucket into a real zero, which the whole design forbids.
+    if (v == null || v === '') return null;
+    const n = v instanceof Date ? v.getTime() : typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
 
   for (const v of value) {
     if (typeof v === 'number') {
       values.push(Number.isFinite(v) ? v : null);
       xs.push(null);
+      lows.push(null);
+      highs.push(null);
       continue;
     }
     if (v == null) {
       values.push(null);
       xs.push(null);
+      lows.push(null);
+      highs.push(null);
       continue;
     }
-    if (typeof v === 'object') {
+    if (typeof v === 'object' && 'y' in (v as Record<string, unknown>)) {
       const rec = v as Record<string, unknown>;
-      if ('y' in rec) {
-        const y = rec.y;
-        values.push(typeof y === 'number' && Number.isFinite(y) ? y : null);
-        const x = rec.x;
-        const xn = x instanceof Date ? x.getTime() : typeof x === 'number' ? x : Number(x);
-        if (Number.isFinite(xn)) {
-          xs.push(xn);
-          sawX = true;
-        } else {
-          xs.push(null);
-        }
-        continue;
-      }
+      values.push(num(rec.y));
+      const x = num(rec.x);
+      if (x !== null) sawX = true;
+      xs.push(x);
+      const low = num(rec.low);
+      const high = num(rec.high);
+      if (low !== null || high !== null) sawBounds = true;
+      lows.push(low);
+      highs.push(high);
+      continue;
     }
-    const n = Number(v);
-    values.push(Number.isFinite(n) ? n : null);
+    values.push(num(v));
     xs.push(null);
+    lows.push(null);
+    highs.push(null);
   }
-  return { values, xs: sawX ? xs : null };
+  return {
+    values,
+    xs: sawX ? xs : null,
+    lows: sawBounds ? lows : null,
+    highs: sawBounds ? highs : null,
+  };
+}
+
+/** Extent covering a series and (when present) its envelope bounds. */
+export function seriesExtentWithBounds(series: Series): Extent | null {
+  const all: (number | null)[] = [...series.values];
+  if (series.lows) all.push(...series.lows);
+  if (series.highs) all.push(...series.highs);
+  return seriesExtent(all);
 }
 
 /**
@@ -379,6 +408,143 @@ export function seriesExtent(values: readonly (number | null)[]): Extent | null 
   const finite = finiteValues(values);
   if (finite.length === 0) return null;
   return { min: Math.min(...finite), max: Math.max(...finite) };
+}
+
+/* ------------------------------------------------------- scalar mark shapes */
+
+export interface BarShape {
+  /** Filled portion. */
+  x: number;
+  width: number;
+  y: number;
+  height: number;
+  negative: boolean;
+  /** Zero/baseline position, for drawing an axis rule when the range crosses it. */
+  baselineX: number;
+}
+
+/**
+ * Data bar: magnitude relative to the column's domain. When the domain spans
+ * zero the bar grows left or right from the zero position, so positive and
+ * negative values are immediately distinguishable rather than merely differently
+ * coloured.
+ */
+export function barShape(value: number, extent: Extent, box: Box): BarShape {
+  const { width, height, padding } = box;
+  const innerW = Math.max(1, width - padding * 2);
+  const innerH = Math.max(1, height - padding * 2);
+  const barH = Math.max(2, Math.round(innerH * 0.62));
+  const y = padding + (innerH - barH) / 2;
+  const span = extent.max - extent.min || 1;
+  const toX = (v: number): number => padding + ((v - extent.min) / span) * innerW;
+  // Baseline is zero when in range, else the nearer edge.
+  const baseValue = extent.min > 0 ? extent.min : extent.max < 0 ? extent.max : 0;
+  const baselineX = toX(baseValue);
+  const valueX = toX(clampNumber(value, extent.min, extent.max));
+  const x = Math.min(baselineX, valueX);
+  const w = Math.max(1, Math.abs(valueX - baselineX));
+  return {
+    x: round(x),
+    width: round(w),
+    y: round(y),
+    height: barH,
+    negative: value < baseValue,
+    baselineX: round(baselineX),
+  };
+}
+
+export interface BulletShape {
+  /** The measure bar (the actual value). */
+  bar: { x: number; width: number; y: number; height: number };
+  /** Target tick; null when no usable target was supplied. */
+  target: { x: number; y: number; height: number } | null;
+  /** Qualitative background bands, innermost first. */
+  bands: { x: number; width: number }[];
+  y: number;
+  height: number;
+}
+
+/**
+ * Bullet: actual against target, the planning question. A thin measure bar
+ * over qualitative bands, with the target as a perpendicular tick — Few's
+ * bullet graph, minus the axis labels a cell has no room for.
+ */
+export function bulletShape(
+  value: number,
+  target: number | null,
+  bands: number[] | undefined,
+  extent: Extent,
+  box: Box,
+): BulletShape {
+  const { width, height, padding } = box;
+  const innerW = Math.max(1, width - padding * 2);
+  const innerH = Math.max(1, height - padding * 2);
+  const span = extent.max - extent.min || 1;
+  const toX = (v: number): number =>
+    padding + ((clampNumber(v, extent.min, extent.max) - extent.min) / span) * innerW;
+
+  const barH = Math.max(2, Math.round(innerH * 0.34));
+  const barY = padding + (innerH - barH) / 2;
+  const zeroX = toX(extent.min > 0 ? extent.min : extent.max < 0 ? extent.max : 0);
+  const valueX = toX(value);
+
+  return {
+    y: round(padding),
+    height: round(innerH),
+    bar: {
+      x: round(Math.min(zeroX, valueX)),
+      width: round(Math.max(1, Math.abs(valueX - zeroX))),
+      y: round(barY),
+      height: barH,
+    },
+    target:
+      target != null && Number.isFinite(target)
+        ? { x: round(toX(target)), y: round(padding + innerH * 0.12), height: round(innerH * 0.76) }
+        : null,
+    bands: (bands ?? [])
+      .filter((b) => Number.isFinite(b))
+      .sort((a, b) => a - b)
+      .map((b) => ({ x: round(padding), width: round(Math.max(0, toX(b) - padding)) })),
+  };
+}
+
+/** Band (envelope) path plus the actual line, for forecast-range marks. */
+export function bandPaths(
+  values: readonly (number | null)[],
+  lows: readonly (number | null)[],
+  highs: readonly (number | null)[],
+  extent: Extent,
+  box: Box,
+  xs?: readonly (number | null)[] | null,
+): { envelope: string; line: string } {
+  const hi = scalePoints(highs, extent, box, xs);
+  const lo = scalePoints(lows, extent, box, xs);
+  const line = linePath(scalePoints(values, extent, box, xs));
+
+  // One closed polygon per run where BOTH bounds exist.
+  let envelope = '';
+  let run: { hi: SparklinePoint; lo: SparklinePoint }[] = [];
+  const flush = (): void => {
+    if (run.length >= 2) {
+      envelope += `M${run[0]!.hi.x} ${run[0]!.hi.y}`;
+      for (const p of run.slice(1)) envelope += `L${p.hi.x} ${p.hi.y}`;
+      for (const p of [...run].reverse()) envelope += `L${p.lo.x} ${p.lo.y}`;
+      envelope += 'Z';
+    }
+    run = [];
+  };
+  for (let i = 0; i < hi.length; i++) {
+    const h = hi[i];
+    const l = lo[i];
+    if (h && l) run.push({ hi: h, lo: l });
+    else flush();
+  }
+  flush();
+  return { envelope, line };
+}
+
+function clampNumber(v: number, min: number, max: number): number {
+  return v < min ? min : v > max ? max : v;
 }
 
 /** Two decimals is below one device pixel and keeps path strings short. */

@@ -406,11 +406,34 @@ export const BASE_CSS = `
 }
 
 /* in-cell sparklines */
+.au-sparkline-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.au-sparkline-cell.au-sparkline-value-right { flex-direction: row-reverse; }
+.au-sparkline-value {
+  flex: none;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
 .au-sparkline {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: visible;
   pointer-events: none; /* the cell owns click/selection, not the mark */
 }
+/* bullet: qualitative bands, palest outermost */
+.au-sparkline-band { fill: var(--au-sparkline-band-color, rgba(120, 130, 150, .13)); }
+.au-sparkline-band-1 { fill: var(--au-sparkline-band-color, rgba(120, 130, 150, .2)); }
+.au-sparkline-band-2 { fill: var(--au-sparkline-band-color, rgba(120, 130, 150, .28)); }
+/* Target tick follows the text color so it stays legible in dark themes. */
+.au-sparkline-target { fill: var(--au-sparkline-target-color, var(--au-foreground-color, #181d1f)); }
 .au-sparkline-marker {
   fill: var(--au-sparkline-marker-color, var(--au-accent-color, #2563eb));
   stroke: var(--au-background-color, #fff);

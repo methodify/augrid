@@ -16,8 +16,8 @@ latest [GitHub Release](https://github.com/methodify/augrid/releases) — works 
 pnpm, yarn, and bun:
 
 ```
-npm add https://github.com/methodify/augrid/releases/download/v0.4.0/augrid-core-0.4.0.tgz \
-        https://github.com/methodify/augrid/releases/download/v0.4.0/augrid-react-0.4.0.tgz
+npm add https://github.com/methodify/augrid/releases/download/v0.5.0/augrid-core-0.5.0.tgz \
+        https://github.com/methodify/augrid/releases/download/v0.5.0/augrid-react-0.5.0.tgz
 ```
 
 Install both together: `@augrid/react` declares `@augrid/core` as a peer dependency.
@@ -133,7 +133,7 @@ header column menus, side-bar tool panels (columns chooser with group/value/pivo
 zones; filters panel), find-in-grid, and the server-side row model (lazy per-parent
 group expansion with server-computed aggregates and write-back at any grain), and
 zero-dependency Excel (.xlsx) export, and in-cell sparklines. Roadmap (v1.x):
-more cell visuals (bullet/data bar/delta), master/detail, row drag, cell spanning,
+master/detail, row drag, cell spanning,
 Angular/Vue/Svelte wrappers.
 
 MIT — see LICENSE.

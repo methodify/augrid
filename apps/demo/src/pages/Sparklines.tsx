@@ -18,6 +18,9 @@ interface Row {
   variance: number[];
   hitMiss: number[];
   onHand: number;
+  plan: number;
+  lastYear: number;
+  forecast: { y: number; low: number; high: number }[];
 }
 
 const CATEGORIES = ['Tops', 'Bottoms', 'Outerwear', 'Footwear'];
@@ -49,13 +52,23 @@ function makeRows(n: number): Row[] {
       demand[5] = Number.NaN;
       demand[6] = Number.NaN;
     }
+    const onHand = (i * 53) % 900;
+    // Forecast cone: widening uncertainty around the demand tail.
+    const forecast = demand.slice(-8).map((v, k) => ({
+      y: v,
+      low: Math.round(v * (1 - 0.05 * (k + 1))),
+      high: Math.round(v * (1 + 0.05 * (k + 1))),
+    }));
     rows.push({
       sku: `SKU-${String(1000 + i)}`,
       category: CATEGORIES[i % CATEGORIES.length]!,
       demand,
       variance,
       hitMiss,
-      onHand: (i * 53) % 900,
+      onHand,
+      plan: Math.round(onHand * (0.7 + ((i % 7) * 0.1))),
+      lastYear: Math.round(onHand * (0.5 + ((i % 11) * 0.09))),
+      forecast,
     });
   }
   return rows;
@@ -108,7 +121,41 @@ export function Sparklines({ theme }: PageProps) {
         sparkline: { type: 'winLoss' },
         width: 150,
       },
-      { field: 'onHand', headerName: 'On hand', width: 100 },
+      {
+        colId: 'forecast',
+        headerName: 'Forecast cone',
+        valueGetter: (p) => p.data?.forecast,
+        sparkline: { type: 'band', markers: { last: true } },
+        width: 170,
+      },
+      {
+        field: 'onHand',
+        headerName: 'On hand',
+        width: 150,
+        sparkline: { type: 'bar', showValue: 'value' },
+      },
+      {
+        colId: 'vsPlan',
+        headerName: 'On hand vs plan',
+        valueGetter: (p) => p.data?.onHand,
+        sparkline: {
+          type: 'bullet',
+          target: (p) => (p.data as Row | undefined)?.plan,
+          showValue: 'value',
+        },
+        width: 175,
+      },
+      {
+        colId: 'vsLY',
+        headerName: 'vs last year',
+        valueGetter: (p) => p.data?.onHand,
+        sparkline: {
+          type: 'delta',
+          baseline: (p) => (p.data as Row | undefined)?.lastYear,
+          showValue: 'value',
+        },
+        width: 150,
+      },
     ],
     [sortBy],
   );

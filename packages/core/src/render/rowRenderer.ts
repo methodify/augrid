@@ -256,16 +256,34 @@ class CellCtrl<TData> {
         e.appendChild(this.sparkline.root);
         this.lastContentKey = '__sparkline';
       }
+      const spark = def.sparkline;
+      // Scalar marks (bar/bullet/delta) compare across rows, so they need the
+      // column-wide extent even without an explicit `domain: 'shared'`.
+      const scalarMark =
+        spark.type === 'bar' || spark.type === 'bullet' || spark.type === 'delta';
       const shared =
-        def.sparkline.domain === 'shared'
+        spark.domain === 'shared' || (scalarMark && !Array.isArray(spark.domain))
           ? (ctx.renderer.getSparklineDomain?.(column.colId) ?? null)
           : null;
+      const scalarParams = { value: typeof value === 'number' ? value : null, data: node.data, colId: column.colId };
+      const resolve = (
+        opt: number | ((p: typeof scalarParams) => number | null | undefined) | undefined,
+      ): number | null => {
+        const v = typeof opt === 'function' ? opt(scalarParams) : opt;
+        return typeof v === 'number' && Number.isFinite(v) ? v : null;
+      };
       this.sparkline.update(
         value,
-        def.sparkline,
+        spark,
         column.actualWidth - SPARKLINE_INSET,
         node.rowHeight - SPARKLINE_INSET,
-        shared,
+        {
+          shared,
+          target: resolve(spark.target),
+          baseline: resolve(spark.baseline),
+          // The column's own formatter, so a composed value matches the grid.
+          format: (n: number) => ctx.values.formatValue(node, column, n),
+        },
       );
       return;
     }

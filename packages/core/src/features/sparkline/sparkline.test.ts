@@ -3,6 +3,10 @@ import { createMockContext } from '../../test/mockContext.js';
 import { Grid } from '../../grid.js';
 import {
   areaPath,
+  bandPaths,
+  barShape,
+  bulletShape,
+  seriesExtentWithBounds,
   columnPaths,
   computeExtent,
   leastSquaresSlope,
@@ -24,7 +28,7 @@ const BOX = { width: 100, height: 20, padding: 0 };
 
 describe('toSeries', () => {
   it('accepts numbers, nulls, numeric strings, and {x,y} objects', () => {
-    expect(toSeries([1, 2, 3])).toEqual({ values: [1, 2, 3], xs: null });
+    expect(toSeries([1, 2, 3])).toEqual({ values: [1, 2, 3], xs: null, lows: null, highs: null });
     expect(toSeries([1, null, 3]).values).toEqual([1, null, 3]);
     expect(toSeries(['4', '5']).values).toEqual([4, 5]);
     expect(toSeries([{ y: 7 }, { y: null }]).values).toEqual([7, null]);
@@ -328,6 +332,183 @@ describe('sparkline column semantics', () => {
     expect(csv).not.toContain('[object');
     // Gaps round-trip as empty slots.
     expect(csv).toContain('4  6');
+    grid.destroy();
+  });
+});
+
+/* ------------------------------------------------- phase 2: planning marks */
+
+describe('scalar mark geometry', () => {
+  const BOX2 = { width: 100, height: 20, padding: 0 };
+
+  it('data bar grows from zero when the domain crosses it', () => {
+    const extent = { min: -50, max: 50 };
+    const pos = barShape(25, extent, BOX2);
+    const neg = barShape(-25, extent, BOX2);
+    expect(pos.baselineX).toBe(50); // zero sits mid-box
+    expect(pos.x).toBe(50);
+    expect(pos.width).toBe(25);
+    expect(pos.negative).toBe(false);
+    // Negative grows LEFT from zero: equal magnitude, mirrored.
+    expect(neg.x).toBe(25);
+    expect(neg.width).toBe(25);
+    expect(neg.negative).toBe(true);
+  });
+
+  it('data bar grows from the near edge when the domain excludes zero', () => {
+    const s = barShape(75, { min: 50, max: 100 }, BOX2);
+    expect(s.baselineX).toBe(0);
+    expect(s.width).toBe(50);
+    expect(s.negative).toBe(false);
+  });
+
+  it('bullet places the measure bar, target tick, and bands', () => {
+    const s = bulletShape(70, 85, [60, 90], { min: 0, max: 100 }, BOX2);
+    expect(s.bar.width).toBe(70); // 70% of the scale
+    expect(s.target!.x).toBe(85);
+    // Bands are cumulative from the left, sorted ascending.
+    expect(s.bands.map((b) => b.width)).toEqual([60, 90]);
+    // The measure bar is thinner than the band area (Few's bullet graph).
+    expect(s.bar.height).toBeLessThan(s.height);
+  });
+
+  it('bullet without a target renders the bar and no tick', () => {
+    const s = bulletShape(40, null, undefined, { min: 0, max: 100 }, BOX2);
+    expect(s.target).toBeNull();
+    expect(s.bands).toEqual([]);
+    expect(s.bar.width).toBe(40);
+  });
+
+  it('bullet clamps out-of-domain values instead of overflowing the cell', () => {
+    const s = bulletShape(500, 85, undefined, { min: 0, max: 100 }, BOX2);
+    expect(s.bar.width).toBeLessThanOrEqual(BOX2.width);
+  });
+
+  it('band builds an envelope polygon plus the actual line, breaking at gaps', () => {
+    const { envelope, line } = bandPaths(
+      [5, 6, null, 8],
+      [3, 4, null, 6],
+      [7, 8, null, 10],
+      { min: 0, max: 10 },
+      BOX2,
+    );
+    expect(envelope.match(/Z/g)).toHaveLength(1); // one run before the gap (the tail is a single point)
+    expect(envelope.startsWith('M')).toBe(true);
+    expect(line.match(/M/g)).toHaveLength(2); // the line still breaks at the gap
+  });
+
+  it('toSeries reads band bounds and reports their presence', () => {
+    const s = toSeries([
+      { y: 5, low: 3, high: 7 },
+      { y: 6, low: 4, high: 8 },
+    ]);
+    expect(s.values).toEqual([5, 6]);
+    expect(s.lows).toEqual([3, 4]);
+    expect(s.highs).toEqual([7, 8]);
+    // Plain series carry no bounds.
+    expect(toSeries([1, 2]).lows).toBeNull();
+    // The extent must cover the envelope, not just the line.
+    expect(seriesExtentWithBounds(s)).toEqual({ min: 3, max: 8 });
+  });
+});
+
+describe('scalar marks in the grid (DOM)', () => {
+  interface SRow { name: string; actual: number; plan: number; ly: number }
+  const SROWS: SRow[] = [
+    { name: 'a', actual: 80, plan: 100, ly: 60 },
+    { name: 'b', actual: 120, plan: 100, ly: 150 },
+    { name: 'c', actual: 40, plan: 90, ly: 40 },
+  ];
+  const mountScalar = (sparkline: ColDef<SRow>['sparkline']) => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const grid = new Grid<SRow>(host, {
+      columnDefs: [{ field: 'name' }, { field: 'actual', sparkline, width: 160 }] as ColDef<SRow>[],
+      rowData: SROWS,
+      getRowId: (p) => p.data.name,
+    });
+    grid.getContext().renderer.setViewportSizeForTesting(600, 300);
+    grid.getContext().renderer.renderNow();
+    return { grid, host };
+  };
+
+  it('data bars scale across the column, not per cell', () => {
+    const { grid, host } = mountScalar({ type: 'bar' });
+    const widths = [...host.querySelectorAll('.au-sparkline rect')].map((r) =>
+      Number(r.getAttribute('width')),
+    );
+    expect(widths).toHaveLength(3);
+    // 120 > 80 > 40 must be reflected in bar widths — the point of a data bar.
+    expect(widths[1]).toBeGreaterThan(widths[0]!);
+    expect(widths[0]).toBeGreaterThan(widths[2]!);
+    grid.destroy();
+  });
+
+  it('bullet renders a target tick from a per-row resolver', () => {
+    const { grid, host } = mountScalar({
+      type: 'bullet',
+      target: (p) => (p.data as SRow | undefined)?.plan,
+      bands: [50, 90],
+    });
+    const first = host.querySelector('.au-sparkline')!;
+    expect(first.querySelector('.au-sparkline-target')).toBeTruthy();
+    expect(first.querySelectorAll('.au-sparkline-band').length).toBe(2);
+    expect(first.getAttribute('aria-label')).toContain('against target');
+    expect(first.getAttribute('aria-label')).toContain('below'); // 80 vs plan 100
+    grid.destroy();
+  });
+
+  it('delta colours by direction against a per-row baseline', () => {
+    const { grid, host } = mountScalar({
+      type: 'delta',
+      baseline: (p) => (p.data as SRow | undefined)?.ly,
+    });
+    const labels = [...host.querySelectorAll('.au-sparkline')].map((s) => s.getAttribute('aria-label'));
+    expect(labels[0]).toContain('up');   // 80 vs 60
+    expect(labels[2]).toContain('up');   // 40 vs 40 → flat counts as up (>= 0)
+    expect(labels[1]).toContain('down'); // 120 vs 150
+    grid.destroy();
+  });
+
+  it('showValue composes the number with the mark using the column formatter', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const grid = new Grid<SRow>(host, {
+      columnDefs: [
+        { field: 'name' },
+        {
+          field: 'actual',
+          width: 200,
+          valueFormatter: (p: { value: unknown }) => `${String(p.value)} u`,
+          sparkline: { type: 'bar', showValue: 'value' },
+        },
+      ] as ColDef<SRow>[],
+      rowData: SROWS,
+      getRowId: (p) => p.data.name,
+    });
+    grid.getContext().renderer.setViewportSizeForTesting(600, 300);
+    grid.getContext().renderer.renderNow();
+    const values = [...host.querySelectorAll('.au-sparkline-value')].map((e) => e.textContent);
+    expect(values[0]).toBe('80 u'); // formatted by the column, not raw
+    expect(host.querySelectorAll('.au-sparkline').length).toBe(3); // mark still drawn
+    grid.destroy();
+  });
+
+  it('series marks can show a summary alongside the line', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const grid = new Grid<Row>(host, {
+      columnDefs: [
+        { field: 'name' },
+        { field: 'trend', width: 200, sparkline: { type: 'line', showValue: 'last' } },
+      ] as ColDef<Row>[],
+      rowData: ROWS,
+      getRowId: (p) => String(p.data.id),
+    });
+    grid.getContext().renderer.setViewportSizeForTesting(600, 300);
+    grid.getContext().renderer.renderNow();
+    const values = [...host.querySelectorAll('.au-sparkline-value')].map((e) => e.textContent);
+    expect(values[1]).toBe('20'); // 'rising' ends at 20
     grid.destroy();
   });
 });

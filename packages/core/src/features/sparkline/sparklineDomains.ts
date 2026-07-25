@@ -32,9 +32,40 @@ export class SparklineDomains<TData = unknown> {
   private compute(colId: string): Extent | null {
     const column = this.ctx.columnModel.getColumn(colId);
     if (!column) return null;
+    const spark = column.getColDef().sparkline;
+    const type = spark?.type ?? 'line';
     const extents: Extent[] = [];
+
     const visit = (node: RowNode<TData>): void => {
-      const extent = seriesExtent(toSeries(this.ctx.values.getValue(node, column)).values);
+      const raw = this.ctx.values.getValue(node, column);
+
+      // Scalar marks hold a single number, not a series. Their whole point is
+      // cross-row comparison, so the column extent is what gives them meaning.
+      if (typeof raw === 'number' && Number.isFinite(raw)) {
+        if (type === 'delta') {
+          // Delta compares CHANGES, so the scale must span changes, not raw
+          // values — otherwise every bar reads against the wrong magnitude.
+          const baseline =
+            typeof spark?.baseline === 'function'
+              ? spark.baseline({ value: raw, data: node.data, colId })
+              : spark?.baseline;
+          const change =
+            typeof baseline === 'number' && Number.isFinite(baseline) ? raw - baseline : raw;
+          const mag = Math.abs(change);
+          extents.push({ min: -mag, max: mag });
+        } else {
+          // Include zero so bars share a common origin across the column.
+          extents.push({ min: Math.min(0, raw), max: Math.max(0, raw) });
+        }
+        return;
+      }
+
+      const series = toSeries(raw);
+      const extent = seriesExtent(
+        series.lows || series.highs
+          ? [...series.values, ...(series.lows ?? []), ...(series.highs ?? [])]
+          : series.values,
+      );
       if (extent) extents.push(extent);
     };
     // Prefer the filtered view: the scale should describe what is on screen,

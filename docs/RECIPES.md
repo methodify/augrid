@@ -314,6 +314,57 @@ it is opt-in.
 Gaps are real: `null` / `NaN` break the line rather than reading as zero — a
 missing week is not a zero week.
 
+### Planning marks (scalar values)
+
+Three marks read a **single number** instead of a series — the questions a
+planning grid asks constantly:
+
+```ts
+// "how big is this row versus the others?" — Excel-style data bar
+{ field: 'onHand', sparkline: { type: 'bar', showValue: 'value' } }
+
+// "did we hit plan?" — actual vs target, the bullet graph
+{ field: 'onHand', sparkline: {
+    type: 'bullet',
+    target: (p) => p.data.plan,     // number, or a function of the row
+    bands: [50, 90],                // optional qualitative background
+    showValue: 'value',
+} }
+
+// "how did we move vs last year?" — signed change
+{ field: 'onHand', sparkline: {
+    type: 'delta',
+    baseline: (p) => p.data.lastYear,
+    showValue: 'value',
+} }
+```
+
+Scalar marks compare **across rows**, so they use the column-wide domain
+automatically (a per-cell scale would make every bar full width). `delta`
+scales over the column's *changes*, not its raw values, so the bars mean
+what they look like. Bars grow left/right of a common origin, so sign is
+visible in the shape, not just the colour.
+
+And one more series mark — `band` — draws a min/max envelope with the actual
+line over it (a forecast cone), from data shaped `{ y, low, high }[]`:
+
+```ts
+{ colId: 'forecast', valueGetter: (p) => p.data.forecast,
+  sparkline: { type: 'band', markers: { last: true } } }
+```
+
+### Showing the number with the mark
+
+Real planning grids show both. `showValue` renders one through the column's
+own `valueFormatter`, so it matches the rest of the grid:
+
+```ts
+sparkline: { type: 'line', showValue: 'last', valuePosition: 'left', valueWidth: 64 }
+```
+
+For series marks it takes a summary (`'first' | 'last' | 'min' | 'max' |
+'mean' | 'sum' | 'slope'`); for scalar marks use `'value'`.
+
 ### Sorting, clipboard, export
 
 An array-valued column has no natural order, so sparkline columns sort by a
