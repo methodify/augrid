@@ -262,9 +262,11 @@ class CellCtrl<TData> {
       const scalarMark =
         spark.type === 'bar' || spark.type === 'bullet' || spark.type === 'delta';
       const shared =
-        spark.domain === 'shared' || (scalarMark && !Array.isArray(spark.domain))
-          ? (ctx.renderer.getSparklineDomain?.(column.colId) ?? null)
-          : null;
+        spark.domain === 'group'
+          ? (ctx.renderer.getSparklineDomain?.(column.colId, node) ?? null)
+          : spark.domain === 'shared' || (scalarMark && !Array.isArray(spark.domain))
+            ? (ctx.renderer.getSparklineDomain?.(column.colId) ?? null)
+            : null;
       const scalarParams = { value: typeof value === 'number' ? value : null, data: node.data, colId: column.colId };
       const resolve = (
         opt: number | ((p: typeof scalarParams) => number | null | undefined) | undefined,

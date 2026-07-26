@@ -3,6 +3,30 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.6.0 — 2026-07-25
+
+**Sparkline interaction + native Excel export** — cell visuals phases 3 & 4
+(AUG-28, AUG-29).
+
+- **Hover readout**: pointing at a series mark shows the value under the
+  cursor (column-formatted; `pointLabel` customizes). One delegated listener
+  set at the grid root — no per-cell listeners; hit-testing uses the same
+  pure geometry the renderer draws with, mapped through the SVG's viewBox so
+  it stays exact under flex stretching. Bars read by slot, lines by nearest
+  point; gaps are skipped.
+- **`sparklinePointClicked`** event: `{node, data, colId, index, value, x}` —
+  click a week, drill into it. `suppressInteraction` opts a column out.
+- **`domain: 'group'`**: one scale per row group (SKUs under a style compare
+  to each other; styles don't), cached per group per model update.
+- **`nativeSparklines: true` on Excel export**: sparkline columns become
+  LIVE Excel sparklines (x14 extension) — series values in hidden trailing
+  columns, one sparkline group per column anchored to the blank visible
+  cells, sheet-qualified formulas that survive multi-sheet renaming, gaps
+  preserved. line/area/band → line, column → column, winLoss → win/loss.
+- Consistency fix: without the flag, sparkline columns now export their
+  series as space-joined text in xlsx (matching CSV/clipboard) instead of
+  comma-joined `String(array)`.
+
 ## 0.5.0 — 2026-07-25
 
 **Planning marks** — cell visuals phase 2 (AUG-27), on phase 1's scale engine.

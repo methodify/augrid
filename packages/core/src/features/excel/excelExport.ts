@@ -2,9 +2,11 @@ import type { GridContext } from '../../context.js';
 import type { Column } from '../../columns/column.js';
 import type { RowNode } from '../../rows/rowNode.js';
 import type { ExcelExportParams } from '../../types/api.js';
+import { toSeries } from '../sparkline/sparkline.js';
 import {
   SharedStrings,
   StyleTable,
+  columnName,
   contentTypesXml,
   rootRelsXml,
   sanitizeSheetName,
@@ -60,11 +62,37 @@ export function buildSheetData<TData>(
   const useFormatted = params.useFormattedValues === true;
   const processCell = params.processCellForExcel;
 
+  // Native sparklines: which columns become live Excel sparklines, and the
+  // per-row series captured for their hidden data blocks.
+  const NATIVE_TYPES: Record<string, 'line' | 'column' | 'stacked'> = {
+    line: 'line',
+    area: 'line', // Excel sparklines have no area type
+    band: 'line',
+    column: 'column',
+    winLoss: 'stacked', // Excel's name for win/loss
+  };
+  const nativeCols = params.nativeSparklines
+    ? columns
+        .map((col, i) => ({ col, i, type: NATIVE_TYPES[col.getColDef().sparkline?.type ?? 'line'] }))
+        .filter((e): e is { col: Column<TData>; i: number; type: 'line' | 'column' | 'stacked' } =>
+          Boolean(e.col.getColDef().sparkline && e.type),
+        )
+    : [];
+  const nativeColIdx = new Set(nativeCols.map((e) => e.i));
+  const capturedSeries = new Map<number, (number | null)[][]>(); // colIdx → per-row series
+  for (const e of nativeCols) capturedSeries.set(e.i, []);
+
   const emit = (node: RowNode<TData>): void => {
     if (params.onlySelected && node.isSelected() !== true) return;
     rows.push(
       columns.map((col, i) => {
         const raw = ctx.values.getValue(node, col);
+        if (nativeColIdx.has(i)) {
+          // The visible cell stays blank — the sparkline draws in it; the
+          // series lands in the hidden block instead.
+          capturedSeries.get(i)!.push(toSeries(raw).values);
+          return { value: null };
+        }
         let value: ExcelValue = processCell
           ? (processCell({ value: raw, node, colId: col.colId }) as ExcelValue)
           : toExcelValue(raw, useFormatted ? ctx.values.getFormattedValue(node, col) : null);
@@ -97,16 +125,58 @@ export function buildSheetData<TData>(
     : ctx.columnModel.getDisplayed().left.filter((c) => c.colId !== 'au-selection-col').length;
   const headerRows = params.skipHeaders ? 0 : 1;
 
+  // px → Excel character units (~7px per character at the default font).
+  const columnWidths: (number | undefined)[] = columns.map((c) =>
+    Math.max(6, Math.round((c.actualWidth / 7) * 10) / 10),
+  );
+
+  // Native sparklines: append each captured series block as hidden columns
+  // after the data, and anchor one live sparkline per row to the (blank)
+  // visible cell.
+  const hiddenColumns: number[] = [];
+  const sparklineGroups: NonNullable<ExcelSheetData['sparklineGroups']> = [];
+  let nextCol = columns.length;
+  for (const e of nativeCols) {
+    const seriesPerRow = capturedSeries.get(e.i)!;
+    const maxLen = seriesPerRow.reduce((m, s) => Math.max(m, s.length), 0);
+    if (maxLen === 0) continue;
+    const blockStart = nextCol;
+    nextCol += maxLen;
+    for (let c = blockStart; c < blockStart + maxLen; c++) hiddenColumns.push(c);
+
+    // Note: referenceValue has no Excel-sparkline equivalent (Excel only
+    // offers a zero axis); it is dropped on native export.
+    const group: (typeof sparklineGroups)[number] = {
+      type: e.type,
+      sparklines: [],
+    };
+    seriesPerRow.forEach((series, r) => {
+      const rowIdx = headerRows + r; // 0-based sheet row of this data row
+      const row = rows[rowIdx]!;
+      // Grow the row into the hidden block.
+      while (row.length < blockStart) row.push({ value: null });
+      for (let k = 0; k < maxLen; k++) row.push({ value: series[k] ?? null });
+      if (series.some((v) => v != null)) {
+        group.sparklines.push({
+          range: `${columnName(blockStart)}${rowIdx + 1}:${columnName(blockStart + maxLen - 1)}${rowIdx + 1}`,
+          anchor: `${columnName(e.i)}${rowIdx + 1}`,
+        });
+      }
+    });
+    if (group.sparklines.length > 0) sparklineGroups.push(group);
+  }
+
   const sheet: ExcelSheetData = {
     name: sanitizeSheetName(params.sheetName ?? 'Sheet1'),
     rows,
-    // px → Excel character units (~7px per character at the default font).
-    columnWidths: columns.map((c) => Math.max(6, Math.round((c.actualWidth / 7) * 10) / 10)),
+    columnWidths,
+    hiddenColumns: hiddenColumns.length ? hiddenColumns : undefined,
     freeze:
       params.suppressFreeze === true
         ? undefined
         : { rows: headerRows, cols: pinnedLeft },
     autoFilterRows: params.suppressAutoFilter === true ? 0 : headerRows,
+    sparklineGroups: sparklineGroups.length ? sparklineGroups : undefined,
   };
   return { sheet, styles };
 }
@@ -122,6 +192,19 @@ function toExcelValue(raw: unknown, formatted: string | null): ExcelValue {
   if (raw == null) return null;
   if (typeof raw === 'number' || typeof raw === 'boolean' || typeof raw === 'string') return raw;
   if (raw instanceof Date) return raw;
+  // Sparkline series (without nativeSparklines): the numbers, space-joined —
+  // consistent with CSV/clipboard, never '[object Object]'.
+  if (Array.isArray(raw)) {
+    return raw
+      .map((v) =>
+        v == null
+          ? ''
+          : typeof v === 'object' && 'y' in (v as Record<string, unknown>)
+            ? String((v as { y: unknown }).y ?? '')
+            : String(v),
+      )
+      .join(' ');
+  }
   return String(raw);
 }
 
@@ -165,8 +248,10 @@ export async function buildWorkbook(
 ): Promise<Uint8Array> {
   const strings = new SharedStrings();
   const names = uniqueSheetNames(sheets.map((s) => s.name));
-  // Sheet XML must be generated before sharedStrings.xml — it fills the table.
-  const sheetParts = sheets.map((s) => sheetXml(s, strings));
+  // Renaming must happen BEFORE part generation: native-sparkline formulas
+  // reference the sheet by its FINAL name. Then sheet XML before
+  // sharedStrings.xml — it fills the table.
+  const sheetParts = sheets.map((s, i) => sheetXml({ ...s, name: names[i]! }, strings));
 
   return createZip([
     { name: '[Content_Types].xml', data: utf8(contentTypesXml(sheets.length)) },

@@ -16,8 +16,8 @@ latest [GitHub Release](https://github.com/methodify/augrid/releases) — works 
 pnpm, yarn, and bun:
 
 ```
-npm add https://github.com/methodify/augrid/releases/download/v0.5.0/augrid-core-0.5.0.tgz \
-        https://github.com/methodify/augrid/releases/download/v0.5.0/augrid-react-0.5.0.tgz
+npm add https://github.com/methodify/augrid/releases/download/v0.6.0/augrid-core-0.6.0.tgz \
+        https://github.com/methodify/augrid/releases/download/v0.6.0/augrid-react-0.6.0.tgz
 ```
 
 Install both together: `@augrid/react` declares `@augrid/core` as a peer dependency.

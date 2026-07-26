@@ -216,12 +216,13 @@ export class GridRenderer<TData = unknown> {
   }
 
   /**
-   * Column-wide sparkline extent for `domain: 'shared'`. Built lazily on
-   * first use so columns that don't ask never pay the row pass.
+   * Column-wide sparkline extent for `domain: 'shared'` (or per row group
+   * when a node is passed for `domain: 'group'`). Built lazily on first use
+   * so columns that don't ask never pay the row pass.
    */
-  getSparklineDomain(colId: string): { min: number; max: number } | null {
+  getSparklineDomain(colId: string, node?: RowNode<TData>): { min: number; max: number } | null {
     this.sparklineDomains ??= new SparklineDomains(this.ctx);
-    return this.sparklineDomains.get(colId);
+    return node ? this.sparklineDomains.getForGroup(colId, node) : this.sparklineDomains.get(colId);
   }
 
   /* ------------------------------------------------------------- observers */

@@ -79,9 +79,11 @@ export interface SparklineOptions {
    *    Note that cells in a column are then NOT comparable to each other.
    *  - 'shared': one scale across every row in the column — shows MAGNITUDE,
    *    making rows comparable. Costs one pass over row data per model update.
+   *  - 'group': one scale per row GROUP — SKUs under a style compare to each
+   *    other, styles don't. The honest middle for hierarchical data.
    *  - [min, max]: a fixed scale you control.
    */
-  domain?: 'auto' | 'shared' | [number, number];
+  domain?: 'auto' | 'shared' | 'group' | [number, number];
   /**
    * Value used when this column is sorted (default 'last'). Without it an
    * array-valued column has no meaningful order.
@@ -146,4 +148,14 @@ export interface SparklineOptions {
    * "n points, up from a to b, min/max" summary so screen readers get the gist.
    */
   ariaLabel?: (values: (number | null)[]) => string;
+
+  /* ---- interaction (series marks) ---- */
+
+  /**
+   * Label for the hovered point's readout and click events. Default:
+   * "index+1/count: formattedValue" (via the column's valueFormatter).
+   */
+  pointLabel?: (params: { index: number; count: number; value: number; x: number | null }) => string;
+  /** Disable hover readout + point-click events for this column. */
+  suppressInteraction?: boolean;
 }

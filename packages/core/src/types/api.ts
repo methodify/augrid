@@ -74,6 +74,14 @@ export interface ExcelExportParams<TData = unknown> {
     node: IRowNode<TData>;
     colId: string;
   }) => string | number | boolean | Date | null;
+  /**
+   * Export sparkline columns as NATIVE Excel sparklines: series values land
+   * in hidden trailing columns and the sheet carries an x14 sparkline group
+   * per column, so the charts stay live in Excel. line/area → line,
+   * column → column, winLoss → win/loss; scalar marks export their value.
+   * Default false: sparkline columns export their series as text.
+   */
+  nativeSparklines?: boolean;
 }
 
 export interface ExcelHeaderStyle {

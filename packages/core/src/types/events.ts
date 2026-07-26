@@ -155,6 +155,20 @@ export interface ToolPanelVisibleChangedEvent<TData = unknown> extends AuEvent<T
   open: 'columns' | 'filters' | null;
 }
 
+/** A specific point of a sparkline cell was clicked — drill into that bucket. */
+export interface SparklinePointClickedEvent<TData = unknown> extends AuEvent<TData> {
+  node: IRowNode<TData>;
+  data: TData | undefined;
+  colId: string;
+  rowIndex: number;
+  /** Index within the series. */
+  index: number;
+  value: number;
+  /** Explicit x for {x, y} series (epoch ms for Dates), else null. */
+  x: number | null;
+  event?: Event;
+}
+
 export interface FindChangedEvent<TData = unknown> extends AuEvent<TData> {
   text: string;
   totalMatches: number;
@@ -224,6 +238,7 @@ export interface GridEventMap<TData = unknown> {
   contextMenuVisibleChanged: ContextMenuVisibleChangedEvent<TData>;
   toolPanelVisibleChanged: ToolPanelVisibleChangedEvent<TData>;
   findChanged: FindChangedEvent<TData>;
+  sparklinePointClicked: SparklinePointClickedEvent<TData>;
 }
 
 export type GridEventName = keyof GridEventMap;

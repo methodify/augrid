@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { AuGrid } from '@augrid/react';
-import type { ColDef } from '@augrid/core';
+import type { ColDef, GridApi, SparklinePointClickedEvent } from '@augrid/core';
 import type { PageProps } from '../App';
 
 /**
@@ -77,6 +77,8 @@ function makeRows(n: number): Row[] {
 export function Sparklines({ theme }: PageProps) {
   const [rowCount, setRowCount] = useState(500);
   const [sortBy, setSortBy] = useState<'last' | 'slope' | 'mean'>('last');
+  const [drill, setDrill] = useState('hover a line for a readout; click a point to drill');
+  const apiRef = useRef<GridApi<Row> | null>(null);
   const rows = useMemo(() => makeRows(rowCount), [rowCount]);
 
   const columnDefs = useMemo<ColDef<Row>[]>(
@@ -91,6 +93,7 @@ export function Sparklines({ theme }: PageProps) {
           type: 'line',
           domain: 'auto',
           markers: { last: true, min: true, max: true },
+          pointLabel: (p) => `Wk ${p.index + 1}: ${p.value.toLocaleString()} u`,
           sortBy,
         },
         width: 220,
@@ -195,7 +198,29 @@ export function Sparklines({ theme }: PageProps) {
           getRowId={(p) => p.data.sku}
           rowHeight={30}
           theme={theme}
+          onGridReady={(e) => {
+            apiRef.current = e.api as GridApi<Row>;
+          }}
+          onSparklinePointClicked={(e: SparklinePointClickedEvent<Row>) =>
+            setDrill(
+              `drill → ${e.data?.sku ?? ''} · ${e.colId} · week ${e.index + 1} = ${e.value.toLocaleString()}`,
+            )
+          }
         />
+      </div>
+      <div className="demo-status">
+        <span>{drill}</span>
+        <button
+          onClick={() =>
+            apiRef.current?.exportDataAsExcel({
+              fileName: 'augrid-sparklines.xlsx',
+              sheetName: 'Trends',
+              nativeSparklines: true,
+            })
+          }
+        >
+          Export Excel (live sparklines)
+        </button>
       </div>
     </div>
   );

@@ -48,7 +48,7 @@ export function computeExtent(
   shared?: Extent | null,
 ): Extent {
   if (Array.isArray(domain)) return normalizeExtent({ min: domain[0], max: domain[1] });
-  if (domain === 'shared' && shared) return normalizeExtent(shared);
+  if ((domain === 'shared' || domain === 'group') && shared) return normalizeExtent(shared);
   const finite = finiteValues(values);
   if (finite.length === 0) return { min: 0, max: 1 };
   let min = finite[0]!;
@@ -550,4 +550,49 @@ function clampNumber(v: number, min: number, max: number): number {
 /** Two decimals is below one device pixel and keeps path strings short. */
 function round(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Inverse of scalePoints' x mapping: which point index is nearest to pixel
+ * `x`? Gap entries are skipped (they have no mark to read). Null when the
+ * series is empty. Pure, so hover hit-testing is testable without a DOM.
+ */
+export function nearestPointIndex(
+  values: readonly (number | null)[],
+  xs: readonly (number | null)[] | null,
+  box: Box,
+  x: number,
+): number | null {
+  const points = scalePoints(values, computeExtent(values, 'auto'), box, xs);
+  let best: number | null = null;
+  let bestDist = Infinity;
+  for (const p of points) {
+    if (!p) continue;
+    const d = Math.abs(p.x - x);
+    if (d < bestDist) {
+      bestDist = d;
+      best = p.index;
+    }
+  }
+  return best;
+}
+
+/**
+ * For column/winLoss marks the cursor reads by SLOT, not by nearest center —
+ * a bar occupies its whole slot. Returns the slot index under `x`, or null
+ * when that slot holds a gap.
+ */
+export function slotIndexAt(
+  values: readonly (number | null)[],
+  box: Box,
+  x: number,
+): number | null {
+  const n = values.length;
+  if (n === 0) return null;
+  const innerW = Math.max(1, box.width - box.padding * 2);
+  const idx = Math.floor(((x - box.padding) / innerW) * n);
+  const clamped = Math.max(0, Math.min(n - 1, idx));
+  return typeof values[clamped] === 'number' && Number.isFinite(values[clamped] as number)
+    ? clamped
+    : null;
 }

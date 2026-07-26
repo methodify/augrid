@@ -29,6 +29,41 @@ export class SparklineDomains<TData = unknown> {
     return extent;
   }
 
+  /**
+   * Extent shared within `node`'s row group (domain: 'group'): SKUs under one
+   * style compare to each other; styles don't. Falls back to the column-wide
+   * extent when the grid isn't grouped. Cached per (colId, group) until the
+   * model changes.
+   */
+  getForGroup(colId: string, node: RowNode<TData>): Extent | null {
+    // Nearest group ancestor; a group row scales with its own subtree.
+    const group = node.group ? node : (node.parent as RowNode<TData> | null);
+    if (!group || group.level < 0 || !group.group) return this.get(colId);
+    const key = `${colId}${group.id}`;
+    const cached = this.cache.get(key);
+    if (cached !== undefined) return cached;
+
+    const column = this.ctx.columnModel.getColumn(colId);
+    if (!column) return null;
+    const extents: Extent[] = [];
+    const visit = (n: RowNode<TData>): void => {
+      if (n.data !== undefined) {
+        const series = toSeries(this.ctx.values.getValue(n, column));
+        const extent = seriesExtent(
+          series.lows || series.highs
+            ? [...series.values, ...(series.lows ?? []), ...(series.highs ?? [])]
+            : series.values,
+        );
+        if (extent) extents.push(extent);
+      }
+      for (const child of n.childrenAfterFilter ?? []) visit(child);
+    };
+    visit(group);
+    const extent = mergeExtents(extents);
+    this.cache.set(key, extent);
+    return extent;
+  }
+
   private compute(colId: string): Extent | null {
     const column = this.ctx.columnModel.getColumn(colId);
     if (!column) return null;

@@ -365,6 +365,40 @@ sparkline: { type: 'line', showValue: 'last', valuePosition: 'left', valueWidth:
 For series marks it takes a summary (`'first' | 'last' | 'min' | 'max' |
 'mean' | 'sum' | 'slope'`); for scalar marks use `'value'`.
 
+### Hover, click-to-drill, and group scales
+
+Series marks respond to the pointer with no configuration: hovering shows a
+readout for the point under the cursor ("3/13: 1,240", via the column's
+formatter — customize with `pointLabel`), and clicking a point fires
+`sparklinePointClicked` with `{node, colId, index, value, x}` so your app can
+drill into that bucket. Opt out per column with `suppressInteraction: true`.
+
+```ts
+sparkline: { pointLabel: (p) => `Wk ${p.index + 1}: ${p.value.toLocaleString()}` },
+onSparklinePointClicked: (e) => openWeekDetail(e.data, e.index),
+```
+
+For hierarchical data there is a third scale choice: `domain: 'group'` shares
+one scale within each row group — SKUs under a style compare to each other,
+but styles don't distort each other's scales.
+
+### Live sparklines in Excel exports
+
+Because the xlsx writer is in-house, sparkline columns can export as
+**native Excel sparklines** rather than flattened text — the charts stay
+live in the workbook:
+
+```ts
+await api.exportDataAsExcel({ fileName: 'trends.xlsx', nativeSparklines: true });
+```
+
+The series values land in hidden trailing columns and each sparkline column
+becomes an Excel sparkline group anchored to its (blank) visible cells.
+Mapping: `line`/`area`/`band` → line, `column` → column, `winLoss` →
+win/loss; scalar marks export their value. Gaps stay gaps
+(`displayEmptyCellsAs="gap"`); `referenceValue` has no Excel equivalent and
+is dropped. Without the flag, series export as space-joined text.
+
 ### Sorting, clipboard, export
 
 An array-valued column has no natural order, so sparkline columns sort by a

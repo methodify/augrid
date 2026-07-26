@@ -23,6 +23,7 @@ import { ContextMenuService } from './interaction/contextMenuService.js';
 import { ColumnMenuService } from './interaction/columnMenuService.js';
 import { SideBarService } from './features/sideBar/sideBarService.js';
 import { FindService } from './features/findService.js';
+import { SparklineInteraction } from './features/sparkline/sparklineInteraction.js';
 import { ColumnDragService } from './interaction/columnDragService.js';
 import { ColumnResizeService } from './interaction/columnResizeService.js';
 import { FilterManager } from './features/filters/filterManager.js';
@@ -91,6 +92,7 @@ export class Grid<TData = unknown> {
     ctx.tooltips = new TooltipService(ctx);
     ctx.sideBar = new SideBarService(ctx, ctx.renderer.getSideBarHost());
     ctx.find = new FindService(ctx);
+    this.sparklineInteraction = new SparklineInteraction(ctx);
     ctx.frameworkAdapter = null;
 
     (ctx as unknown as { __destroyGrid: () => void }).__destroyGrid = () => this.destroy();
@@ -143,6 +145,7 @@ export class Grid<TData = unknown> {
   }
 
   private stopOptionsEffect: (() => void) | null = null;
+  private sparklineInteraction: SparklineInteraction<TData> | null = null;
 
   private wireOptionChanges(): void {
     const ctx = this.ctx;
@@ -248,6 +251,7 @@ export class Grid<TData = unknown> {
       api: ctx.api,
       context: ctx.options.get('context'),
     });
+    this.sparklineInteraction?.destroy();
     ctx.find?.destroy();
     ctx.sideBar?.destroy();
     ctx.tooltips?.destroy();
