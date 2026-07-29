@@ -42,4 +42,8 @@ performance rules) before changing core.
   sufficient. Lenient readers (openpyxl) accept files Excel repairs. Validate
   by diffing against a known-good producer's output for the same feature, and
   encode the consumer's semantic rules as tests (e.g. xlsx `activePane` must
-  name a pane the split creates; sheet names must be unique).
+  name a pane the split creates; sheet names must be unique). And "opens
+  cleanly" is STILL not sufficient — the feature must visibly work: native
+  sparklines opened without complaint but plotted blank because Excel ignores
+  hidden rows/cols unless `displayHidden="1"` (AUG-29). Human eyes on real
+  Excel's rendering are part of the release check for any new xlsx feature.
