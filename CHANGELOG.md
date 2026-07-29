@@ -3,6 +3,16 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.7.1 — 2026-07-29
+
+- **Fix: native Excel sparklines rendered blank in real Excel** (AUG-29).
+  Excel sparklines ignore data in hidden rows/columns by default, and the
+  exported series lives in hidden columns — so every group plotted nothing
+  (the group existed: ribbon activated, anchor cells highlighted). Every
+  `x14:sparklineGroup` now sets `displayHidden="1"`. Found only in real
+  Excel: the file was structurally valid and opened without complaint —
+  openpyxl and Excel's own repairer had nothing to object to.
+
 ## 0.7.0 — 2026-07-28
 
 **Cell hover events + blessed DOM contract** — rich hovercards app-side (AUG-33).
