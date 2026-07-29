@@ -615,3 +615,61 @@ describe('GridRenderer — cheap header geometry (C17)', () => {
     expect(valueHeader.style.left).toBe('333px');
   });
 });
+
+describe('GridRenderer — cellMouseOver / cellMouseOut', () => {
+  function hoverSetup() {
+    const events: { type: string; rowIndex: number; colId: string; value: unknown }[] = [];
+    const { ctx, renderer, host } = setup({}, 10);
+    const record = (e: { type: string; rowIndex: number; colId: string; value: unknown }) =>
+      events.push({ type: e.type, rowIndex: e.rowIndex, colId: e.colId, value: e.value });
+    ctx.events.addEventListener('cellMouseOver', record);
+    ctx.events.addEventListener('cellMouseOut', record);
+    renderer.setViewportSizeForTesting(800, 300);
+    renderer.renderNow();
+    const cell = (rowId: string, colId: string) =>
+      host.querySelector(`[data-au-row-id="${rowId}"] [data-au-col="${colId}"]`) as HTMLElement;
+    return { ctx, renderer, host, events, cell };
+  }
+
+  it('fires over once per cell entry and pairs an out on exit to another cell', () => {
+    const { events, cell } = hoverSetup();
+    cell('r0', 'name').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(events).toEqual([{ type: 'cellMouseOver', rowIndex: 0, colId: 'name', value: 'name0' }]);
+
+    // mouseover chatter inside the same cell (child spans) stays silent
+    (cell('r0', 'name').firstChild as HTMLElement | null)?.dispatchEvent?.(
+      new MouseEvent('mouseover', { bubbles: true }),
+    );
+    cell('r0', 'name').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(events.length).toBe(1);
+
+    // crossing into the neighbour: out(old) then over(new)
+    cell('r0', 'value').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(events.slice(1)).toEqual([
+      { type: 'cellMouseOut', rowIndex: 0, colId: 'name', value: 'name0' },
+      { type: 'cellMouseOver', rowIndex: 0, colId: 'value', value: 0 },
+    ]);
+  });
+
+  it('fires out when the pointer leaves the grid, and over again on re-entry', () => {
+    const { renderer, events, cell } = hoverSetup();
+    cell('r1', 'value').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    renderer.eRoot.dispatchEvent(new MouseEvent('mouseleave'));
+    expect(events).toEqual([
+      { type: 'cellMouseOver', rowIndex: 1, colId: 'value', value: 1 },
+      { type: 'cellMouseOut', rowIndex: 1, colId: 'value', value: 1 },
+    ]);
+    cell('r1', 'value').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(events.length).toBe(3);
+    expect(events[2]!.type).toBe('cellMouseOver');
+  });
+
+  it('hovering non-cell chrome (header) after a cell fires the out event', () => {
+    const { host, events, cell } = hoverSetup();
+    cell('r2', 'name').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const header = host.querySelector('[data-au-header-col="name"]') as HTMLElement;
+    header.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(events.map((e) => e.type)).toEqual(['cellMouseOver', 'cellMouseOut']);
+    expect(events[1]).toMatchObject({ rowIndex: 2, colId: 'name' });
+  });
+});

@@ -1,6 +1,6 @@
 {
   "name": "@augrid/react",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "React wrapper for AuGrid.",
   "license": "MIT",
   "type": "module",
@@ -22,7 +22,7 @@
     "prepack": "pnpm run build"
   },
   "peerDependencies": {
-    "@augrid/core": ">=0.6.0 <0.7",
+    "@augrid/core": ">=0.7.0 <0.8",
     "react": ">=18",
     "react-dom": ">=18"
   },

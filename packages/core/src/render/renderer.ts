@@ -75,6 +75,8 @@ export class GridRenderer<TData = unknown> {
   private headerDirty = true;
   private firstRenderDone = false;
   private hoveredRowId: string | null = null;
+  /** Cell under the pointer, for enter/exit event pairing across recycled rows. */
+  private hoveredCell: { key: string; payload: ReturnType<GridRenderer<TData>['cellEventPayload']> } | null = null;
   private scrollEndTimer: ReturnType<typeof setTimeout> | null = null;
   private lastVisible = { first: 0, last: -1 };
   private destroyed = false;
@@ -301,8 +303,9 @@ export class GridRenderer<TData = unknown> {
     this.eRoot.addEventListener('dblclick', (e) => this.onDblClick(e));
     this.eRoot.addEventListener('contextmenu', (e) => this.onContextMenu(e));
     this.eRoot.addEventListener('mouseover', (e) => this.onMouseOver(e));
-    this.eRoot.addEventListener('mouseleave', () => {
+    this.eRoot.addEventListener('mouseleave', (e) => {
       this.setHoveredRow(null);
+      this.setHoveredCell(null, e);
       this.ctx.tooltips?.onLeaveGrid();
     });
   }
@@ -468,12 +471,32 @@ export class GridRenderer<TData = unknown> {
     const target = e.target as Element;
     const rowEl = closestWithAttr(target, 'data-au-row-id', this.eRoot);
     this.setHoveredRow(rowEl ? rowEl.getAttribute('data-au-row-id') : null);
+    const hit = this.cellFromEvent(e);
+    this.setHoveredCell(hit && hit.column ? hit : null, e);
     if (this.ctx.tooltips) {
       const cellEl = closestWithAttr(target, 'data-au-col', this.eRoot);
       const rowIdx = rowEl ? Number(rowEl.getAttribute('data-au-row-index')) : -1;
       if (cellEl && rowIdx >= 0) {
         this.ctx.tooltips.onCellMouseOver(cellEl, rowIdx, cellEl.getAttribute('data-au-col')!);
       }
+    }
+  }
+
+  /**
+   * Enter/exit pairing for cellMouseOver/cellMouseOut. Keyed by node id + colId
+   * so mouseover chatter inside one cell (spans, sparkline SVGs) stays silent,
+   * and the exit event carries the entered cell's payload even after the row
+   * element has been recycled.
+   */
+  private setHoveredCell(hit: CellHit<TData> | null, e: MouseEvent): void {
+    const key = hit && hit.column ? `${hit.node.id}:${hit.column.colId}` : null;
+    if (key === (this.hoveredCell?.key ?? null)) return;
+    if (this.hoveredCell) {
+      this.ctx.events.dispatch({ ...this.hoveredCell.payload, type: 'cellMouseOut', event: e });
+    }
+    this.hoveredCell = key ? { key, payload: this.cellEventPayload(hit!, e) } : null;
+    if (this.hoveredCell) {
+      this.ctx.events.dispatch({ ...this.hoveredCell.payload, type: 'cellMouseOver' });
     }
   }
 

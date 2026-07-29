@@ -3,6 +3,25 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.7.0 — 2026-07-28
+
+**Cell hover events + blessed DOM contract** — rich hovercards app-side (AUG-33).
+
+- **`cellMouseOver` / `cellMouseOut`** events (AG Grid parity): fire once per
+  cell entry/exit off the grid's existing delegated hover path — no per-cell
+  listeners. Full `CellEvent` payload (`node`, `data`, `column`, `colDef`,
+  `colId`, `value`, `rowIndex`, `event`). `cellMouseOut` also fires when the
+  pointer leaves the grid, and the exit event carries the entered cell's
+  payload even after the row element was recycled. Same-cell mouseover
+  chatter (child spans, sparkline SVGs) is silent.
+- **Blessed DOM contract** (now public API, documented in RECIPES.md):
+  `.au-cell[data-au-col]`, row `[data-au-row-id]`/`[data-au-row-index]`,
+  `.au-header-cell[data-au-header-col]` — the attributes AuGrid's own
+  delegated handlers run on.
+- New recipe: cell markers ("pips") with rich hovercards — CSS-only corner
+  glyphs plus an app-rendered card on the new events; header variant included.
+- First-class component tooltips (`tooltipComponent`) tracked as AUG-34.
+
 ## 0.6.0 — 2026-07-25
 
 **Sparkline interaction + native Excel export** — cell visuals phases 3 & 4

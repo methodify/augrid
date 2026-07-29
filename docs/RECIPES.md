@@ -426,6 +426,70 @@ Copying or exporting a sparkline cell yields the underlying numbers
 - The demo's "Sparklines" page shows the same demand series under both
   scaling modes side by side.
 
+## Cell markers ("pips") with rich hovercards
+
+Excel-comment-style corner glyphs on cells, with a styled card on hover —
+entirely app-side, no custom cell renderer needed (v0.7.0+).
+
+**The pip** is pure CSS on a class you control:
+
+```ts
+{ field: 'revenue', cellClassRules: { 'has-finding': (p) => findings.has(key(p)) } }
+```
+
+```css
+.has-finding { position: relative; }
+.has-finding::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  border: 4px solid transparent;
+  border-top-color: #d9822b; border-right-color: #d9822b;
+}
+```
+
+**The hovercard** rides the grid's delegated hover events — `cellMouseOver`
+fires once when the pointer enters a cell, `cellMouseOut` once when it leaves
+(including leaving the grid). No per-cell listeners, no pointermove
+hit-testing:
+
+```ts
+onCellMouseOver: (e) => {
+  const finding = findings.get(`${e.node.id}:${e.colId}`);
+  if (!finding) return;
+  const cellEl = (e.event?.target as Element)?.closest('[data-au-col]');
+  if (cellEl) showCard(finding, cellEl.getBoundingClientRect());
+},
+onCellMouseOut: () => hideCard(),
+```
+
+**Header markers** use the same idea with `headerClass` for the pip and one
+delegated listener pair for the card (there are no header hover events):
+
+```ts
+gridEl.addEventListener('pointerover', (e) => {
+  const h = (e.target as Element).closest('[data-au-header-col]');
+  if (h) showHeaderCard(h.getAttribute('data-au-header-col')!, h.getBoundingClientRect());
+});
+gridEl.addEventListener('pointerout', (e) => {
+  if ((e.target as Element).closest('[data-au-header-col]')) hideCard();
+});
+```
+
+**Stable DOM contract** (public API as of v0.7.0 — these attributes are the
+ones AuGrid's own delegated handlers run on):
+
+| Element | Selector |
+| --- | --- |
+| Cell | `.au-cell[role="gridcell"][data-au-col="<colId>"]` |
+| Row | `[data-au-row-id="<node.id>"]` `[data-au-row-index="<displayIndex>"]` |
+| Header cell | `.au-header-cell[role="columnheader"][data-au-header-col="<colId>"]` |
+
+Two rules: **don't cache** element→row mappings (rows are virtualized and
+recycled — re-read attributes per event), and don't assume one element per
+row (pinned columns mean up to three band elements share one
+`data-au-row-id`). If your card needs the grid to own delay/positioning or
+stay open under the pointer, that's first-class component tooltips — tracked
+as AUG-34.
+
 ## Persisting user layout
 
 ```ts

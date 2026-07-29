@@ -189,6 +189,10 @@ export interface GridEventMap<TData = unknown> {
   cellClicked: CellEvent<TData>;
   cellDoubleClicked: CellEvent<TData>;
   cellContextMenu: CellEvent<TData>;
+  /** Fired once when the pointer enters a cell (delegated; no per-cell listeners). */
+  cellMouseOver: CellEvent<TData>;
+  /** Fired once when the pointer leaves a cell, including leaving the grid. */
+  cellMouseOut: CellEvent<TData>;
   cellFocused: CellFocusedEvent<TData>;
   rowClicked: RowEvent<TData>;
   rowDoubleClicked: RowEvent<TData>;
