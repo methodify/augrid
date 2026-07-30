@@ -1,10 +1,10 @@
 # AuGrid
 
 **A free, MIT-licensed, high-performance data grid.** Framework-agnostic core, first-class
-React wrapper, native `<au-grid>` custom element. Everything AG Grid charges Enterprise
-prices for — row grouping, aggregation, **pivoting**, cell **range selection**, **fill
-handle**, **clipboard**, tree data, set filters, undo/redo — free, in one small,
-zero-dependency package.
+React wrapper, native `<au-grid>` custom element. Everything the commercial enterprise
+grids charge per-developer prices for — row grouping, aggregation, **pivoting**, cell
+**range selection**, **fill handle**, **clipboard**, tree data, set filters, undo/redo —
+free, in one small, zero-dependency package.
 
 ### ▶ [Try it live — methodify.github.io/augrid](https://methodify.github.io/augrid/)
 
@@ -61,13 +61,13 @@ import { AuGrid, reactComponent } from '@augrid/react';
 
 ## Why AuGrid
 
-| | AG Grid | AuGrid |
+| | Typical enterprise grid | AuGrid |
 |---|---|---|
-| Pivoting, ranges, clipboard, grouping, tree data | Enterprise ($999+/dev/yr) | **Free, MIT** |
-| Core bundle (min+gzip) | ~250 kB+ | **47 kB** |
+| Pivoting, ranges, clipboard, grouping, tree data | Paid tier ($1k+/dev/yr) | **Free, MIT** |
+| Core bundle (min+gzip) | 200–300 kB+ | **47 kB** |
 | Runtime dependencies | — | **Zero** |
 | Server write-back editing | possible | **first-class** (`readOnlyEdit` + `cellEditRequest` on every edit/paste/fill) |
-| Web component | no | **`<au-grid>`** |
+| Web component | rare | **`<au-grid>`** |
 | State transparency | opaque internals | `getState()`/`applyState()` for everything |
 
 ## Feature highlights

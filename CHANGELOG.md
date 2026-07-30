@@ -17,7 +17,7 @@ All notable changes to AuGrid will be documented in this file. Versions follow
 
 **Cell hover events + blessed DOM contract** — rich hovercards app-side (AUG-33).
 
-- **`cellMouseOver` / `cellMouseOut`** events (AG Grid parity): fire once per
+- **`cellMouseOver` / `cellMouseOut`** events (standard grid event semantics): fire once per
   cell entry/exit off the grid's existing delegated hover path — no per-cell
   listeners. Full `CellEvent` payload (`node`, `data`, `column`, `colDef`,
   `colId`, `value`, `rowIndex`, `event`). `cellMouseOut` also fires when the

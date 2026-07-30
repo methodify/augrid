@@ -33,8 +33,8 @@ touching renderer or public API. That is where Rust belongs if/when profiling de
 
 Canvas grids (e.g. Glide) win raw paint throughput but forfeit native accessibility, IME/text
 behavior, CSS theming, and DOM/React custom cell renderers — all core product promises.
-DOM virtualization + recycling demonstrably holds 60fps at 1M rows (AG Grid proves the
-ceiling). Renderer is a distinct module; a canvas/hybrid painter remains possible later
+DOM virtualization + recycling demonstrably holds 60fps at 1M rows (the leading
+DOM-virtualized commercial grids prove the ceiling). Renderer is a distinct module; a canvas/hybrid painter remains possible later
 behind the same controllers.
 
 ## ADR-003: Fine-grained internal store (signals), framework-free
@@ -43,7 +43,7 @@ behind the same controllers.
 
 Internal reactivity is a ~100-line signal/computed/effect implementation. No external state
 library: zero deps is a product promise, and the store is trivial relative to integration
-cost of a dependency. Public API remains imperative + events (AG-Grid-familiar).
+cost of a dependency. Public API remains imperative + events (the shape most grid users already know).
 
 ## ADR-004: Write-back as a first-class contract
 

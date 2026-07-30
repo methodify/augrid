@@ -2,12 +2,12 @@
 
 ## Vision
 
-AuGrid is a free, MIT-licensed, framework-agnostic data grid that matches or exceeds AG Grid on
-performance and interaction quality, with a cleaner API, smaller bundle, and no
-Community/Enterprise feature wall. Every feature is free.
+AuGrid is a free, MIT-licensed, framework-agnostic data grid that matches or exceeds the
+leading commercial data grids on performance and interaction quality, with a cleaner API,
+smaller bundle, and no free/paid feature wall. Every feature is free.
 
-**Positioning:** "The grid you'd build if you could start over" — AG Grid's power without its
-accumulated API sprawl, licensing complexity, or bundle weight.
+**Positioning:** "The grid you'd build if you could start over" — enterprise-grid power
+without the accumulated API sprawl, licensing complexity, or bundle weight.
 
 ## Target users
 
@@ -29,8 +29,8 @@ accumulated API sprawl, licensing complexity, or bundle weight.
   renders its own DOM. A `<au-grid>` custom element and a React wrapper ship in v1.
 - **One coherent API.** Declarative `GridOptions` in, imperative `GridApi` out, events
   throughout. No parallel legacy APIs.
-- **Everything is free.** Pivoting, range selection, clipboard, tree data — features AG Grid
-  gates behind Enterprise are all in the MIT core.
+- **Everything is free.** Pivoting, range selection, clipboard, tree data — features the
+  commercial grids gate behind enterprise licenses are all in the MIT core.
 - **Headless where it counts.** The row pipeline (sort/filter/group/aggregate/pivot) is usable
   without the renderer for tests and server-side use.
 
@@ -150,18 +150,18 @@ charts; Angular, Vue, Svelte wrappers; RTL; localization bundles.
 - 1M-row client-side model: smooth wheel scroll, < 16ms average frame during scroll.
 - 100k rows: sort < 120ms, filter < 80ms, group+aggregate < 250ms (M-class laptop).
 - Initial render (100 cols × 100k rows) < 250ms after data set.
-- Core bundle < 120kB min+gzip (AG Grid community ~250kB+).
+- Core bundle < 120kB min+gzip (typical commercial grid cores: 200–300kB+).
 - Zero runtime dependencies in core.
 - Unit test suite over the entire pipeline + interaction logic; demo app exercising every
   feature; benchmark harness in-repo.
 
-## Why we win vs AG Grid
+## Why we win vs the incumbents
 
-| Axis | AG Grid | AuGrid |
+| Axis | Incumbent enterprise grids | AuGrid |
 |---|---|---|
-| Licensing | Community/Enterprise split, per-dev pricing for pivot/ranges/clipboard | Everything MIT |
-| Bundle | Large; modules system to trim | Small core, tree-shakeable features |
-| API | 20 versions of accretion, many deprecated paths | One modern API, typed end-to-end |
-| Write-back | `readOnlyEdit` exists but second-class | First-class: every mutation (edit, paste, fill) is interceptable and async-friendly |
-| Theming | Theming API (v33+) + legacy CSS themes | Single CSS-variable system from day one |
-| Web component | None | `<au-grid>` native custom element |
+| Licensing | Free/paid split, per-dev pricing for pivot/ranges/clipboard | Everything MIT |
+| Bundle | Large; opt-in module systems to trim | Small core, tree-shakeable features |
+| API | Years of accretion, many deprecated paths | One modern API, typed end-to-end |
+| Write-back | Interception hooks exist but second-class | First-class: every mutation (edit, paste, fill) is interceptable and async-friendly |
+| Theming | Successive theming systems + legacy CSS paths | Single CSS-variable system from day one |
+| Web component | Rare | `<au-grid>` native custom element |

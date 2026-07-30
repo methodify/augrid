@@ -1,6 +1,6 @@
 # AuGrid
 
-Free, MIT, framework-agnostic high-performance data grid (AG Grid class). Monorepo:
+Free, MIT, framework-agnostic high-performance data grid (enterprise-grid class). Monorepo:
 `packages/core` (@augrid/core, zero deps), `packages/react` (@augrid/react), `apps/demo`.
 
 Read `docs/PRODUCT.md` (scope) and `docs/ARCHITECTURE.md` (module map, interfaces,
