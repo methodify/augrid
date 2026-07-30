@@ -10,7 +10,7 @@ import type {
 import type { PageProps } from '../App';
 
 /**
- * Server-side row model (AUG-8/AUG-20): the Plank scenario. A fake "semantic
+ * Server-side row model: an enterprise-planning scenario. A fake "semantic
  * model" server owns a Region → Store → SKU hierarchy (including a BLANK
  * region member — null keys are real member values) and computes aggregates
  * at every grain. Children are fetched per-parent on expand; edits on group

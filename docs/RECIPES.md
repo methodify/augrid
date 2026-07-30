@@ -487,8 +487,8 @@ Two rules: **don't cache** element→row mappings (rows are virtualized and
 recycled — re-read attributes per event), and don't assume one element per
 row (pinned columns mean up to three band elements share one
 `data-au-row-id`). If your card needs the grid to own delay/positioning or
-stay open under the pointer, that's first-class component tooltips — tracked
-as AUG-34.
+stay open under the pointer, that's first-class component tooltips — on the
+roadmap.
 
 ## Persisting user layout
 

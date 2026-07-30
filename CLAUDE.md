@@ -14,15 +14,16 @@ performance rules) before changing core.
 
 ## Hard rules
 
-- Push to origin after landing a feature/fix. External consumers (e.g. mosaic-ui)
+- Push to origin after landing a feature/fix. External consumers
   track the remote and file issues against what they can see — unpushed work
   doesn't exist for them. Keep README/PRODUCT.md scope claims in sync with what
   actually shipped (a consumer read "not built now" and filed for an existing feature).
-- Releases (until npm publish, AUG-16): bump versions, CHANGELOG section, tag `vX.Y.Z`,
-  then `pnpm pack` both packages and attach the tarballs to a GitHub Release —
-  consumers install by asset URL. A bare git tag is NOT consumable (source-only
-  monorepo; AUG-18). Verify a release by npm-installing the tarballs in a scratch
-  project and importing both packages in DOM-less Node.
+- Releases: bump versions, CHANGELOG section, tag `vX.Y.Z`, build, `pnpm pack`
+  both packages, GitHub Release with the tarballs attached, then
+  `npm publish --access public` both (org @augrid; core first, then react).
+  A bare git tag is NOT consumable (source-only monorepo). Verify by
+  npm-installing FROM THE REGISTRY in a scratch project and importing both
+  packages in DOM-less Node — never skip this smoke test.
 
 - Core has ZERO runtime dependencies. Never add one.
 - Strict TS; no `any` in public types (internal casts allowed sparingly).
@@ -45,5 +46,5 @@ performance rules) before changing core.
   name a pane the split creates; sheet names must be unique). And "opens
   cleanly" is STILL not sufficient — the feature must visibly work: native
   sparklines opened without complaint but plotted blank because Excel ignores
-  hidden rows/cols unless `displayHidden="1"` (AUG-29). Human eyes on real
+  hidden rows/cols unless `displayHidden="1"`. Human eyes on real
   Excel's rendering are part of the release check for any new xlsx feature.

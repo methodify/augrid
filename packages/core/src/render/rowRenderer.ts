@@ -203,7 +203,7 @@ class CellCtrl<TData> {
     const e = this.elCell;
 
     // Row still being fetched (infinite/server-side block in flight): render
-    // a skeleton bar so loading reads as "working", not "broken" (AUG-23).
+    // a skeleton bar so loading reads as "working", not "broken".
     if (node.__loading) {
       if (this.lastContentKey !== '__skeleton') {
         this.clearContent();

@@ -57,7 +57,7 @@ describe('EditingService — editability gates', () => {
     svc.destroy();
   });
 
-  it('secondary (pivot result) columns: editable per colDef, commits event-routed (AUG-6)', () => {
+  it('secondary (pivot result) columns: editable per colDef, commits event-routed', () => {
     const { ctx, svc } = setup();
     const col = ctx.columnModel.getColumn('name')!;
     col.secondary = true;

@@ -13,7 +13,7 @@ import type {
 import type { PageProps } from '../App';
 
 /**
- * The planning-platform scenario (AUG-4/AUG-7): an editable pivot over a
+ * The planning-platform scenario: an editable pivot over a
  * "semantic model". Rows = item/color, columns = market/store, read-only
  * measures + one WRITE measure (allocation) + a write ATTRIBUTE (reason,
  * aggFunc 'first'). Every commit to an aggregate cell arrives as a

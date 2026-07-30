@@ -31,9 +31,9 @@ interface Slot<TData> {
 const pathKey = (path: GroupKey[]): string => JSON.stringify(path);
 
 /**
- * Server-side row model (AUG-8/AUG-20): lazy per-parent group expansion for
- * hierarchies too large to materialize (Plank: ~240K leaves under a 7-level
- * product tree). Each expansion fetches that parent's children through
+ * Server-side row model: lazy per-parent group expansion for
+ * hierarchies too large to materialize (real consumer case: ~240K leaves
+ * under a 7-level product tree). Each expansion fetches that parent's children through
  * `serverSideDatasource.getRows` — block-windowed within the parent, so a
  * 73K-child parent pages instead of loading whole. Group rows carry
  * SERVER-computed aggregate values in their data; the grid never
@@ -98,7 +98,7 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
       // Until the first block lands, show ONE loading row — not a speculative
       // block. A tree expand's fan-out is usually far smaller than a block;
       // allocating blockSize blank rows pushed content down and then snapped
-      // back (AUG-23). When the parent's child count is already known (prior
+      // back. When the parent's child count is already known (prior
       // load), allocate exactly that many skeleton rows.
       const known = parentNode && parentNode.allChildrenCount > 0 ? parentNode.allChildrenCount : 0;
       store = {

@@ -4,7 +4,7 @@ import type { ColDefOrGroup } from '../types/colDef.js';
 import { budget } from './perfBudget.js';
 
 /**
- * Column-axis stress guard (AUG-21, Plank's shape): ~30+ destination column
+ * Column-axis stress guard (a real consumer's shape): ~30+ destination column
  * groups × 5-11 measures ≈ 400 columns under a two-row grouped header, a
  * small pinned-left region, thousands of rows. The invariants:
  *  - rendered cells stay O(visible columns), not O(400)
@@ -53,7 +53,7 @@ function makeWideRows(n: number): WideRow[] {
   });
 }
 
-it(`render stays O(viewport) at ${GROUPS * MEASURES} columns in ${GROUPS} groups (Plank shape)`, () => {
+it(`render stays O(viewport) at ${GROUPS * MEASURES} columns in ${GROUPS} groups (planning-grid shape)`, () => {
   const host = document.createElement('div');
   document.body.appendChild(host);
 
@@ -76,7 +76,7 @@ it(`render stays O(viewport) at ${GROUPS * MEASURES} columns in ${GROUPS} groups
   // Grouped header: only groups over the window materialize.
   const groupHeaderCells = host.querySelectorAll('.au-header-group-cell').length;
   // Group-row cells are not column-windowed today (one bounded row; ~40 nodes
-  // at Plank scale is cheap and they never rebuild on horizontal scroll).
+  // at this scale is cheap and they never rebuild on horizontal scroll).
   expect(groupHeaderCells).toBeLessThanOrEqual(GROUPS);
 
   // Vertical scroll passes (constant column window).
@@ -90,7 +90,7 @@ it(`render stays O(viewport) at ${GROUPS * MEASURES} columns in ${GROUPS} groups
   console.log('vertical scroll pass:', vertical.toFixed(2), 'ms (jsdom)');
   expect(vertical).toBeLessThan(budget(35));
 
-  // Horizontal scroll passes — the Plank axis: columns AND grouped header
+  // Horizontal scroll passes — the wide axis: columns AND grouped header
   // cells cycle through the virtualization window.
   t = performance.now();
   const H_PASSES = 40;

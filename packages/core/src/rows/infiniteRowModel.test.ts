@@ -278,7 +278,7 @@ describe('InfiniteRowModel', () => {
   });
 });
 
-describe('InfiniteRowModel targeted refresh (AUG-22)', () => {
+describe('InfiniteRowModel targeted refresh', () => {
   it('refreshCache with a row range refetches only intersecting loaded blocks', () => {
     const { ds, pending } = manualDatasource();
     const { model } = setup(ds); // blockSize 10

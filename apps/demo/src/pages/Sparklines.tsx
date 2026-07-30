@@ -4,7 +4,7 @@ import type { ColDef, GridApi, SparklinePointClickedEvent } from '@augrid/core';
 import type { PageProps } from '../App';
 
 /**
- * Cell visuals, phase 1 (AUG-26): sparkline columns over a planning-shaped
+ * Cell visuals, phase 1: sparkline columns over a planning-shaped
  * dataset — 13 weeks of demand per SKU, weekly variance to plan, and a
  * hit/miss record. Demonstrates the scale-honesty choice: the same demand
  * series drawn with a per-cell scale (shape) and a column-shared scale

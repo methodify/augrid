@@ -1,6 +1,6 @@
 {
   "name": "@augrid/react",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "React wrapper for AuGrid.",
   "license": "MIT",
   "type": "module",
@@ -22,7 +22,7 @@
     "prepack": "pnpm run build"
   },
   "peerDependencies": {
-    "@augrid/core": ">=0.7.0 <0.8",
+    "@augrid/core": ">=0.8.0 <0.9",
     "react": ">=18",
     "react-dom": ">=18"
   },
@@ -38,6 +38,16 @@
     "url": "git+https://github.com/methodify/augrid.git",
     "directory": "packages/react"
   },
-  "homepage": "https://github.com/methodify/augrid",
-  "bugs": "https://github.com/methodify/augrid/issues"
+  "homepage": "https://methodify.github.io/augrid/",
+  "bugs": "https://github.com/methodify/augrid/issues",
+  "author": "Bryon Williams",
+  "keywords": [
+    "react",
+    "datagrid",
+    "grid",
+    "table",
+    "virtual-scroll",
+    "pivot",
+    "augrid"
+  ]
 }

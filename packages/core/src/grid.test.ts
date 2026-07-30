@@ -155,7 +155,7 @@ describe('Grid composition root', () => {
     grid.destroy();
   });
 
-  it('editable pivot cell: typed edit is event-routed with intersection context (AUG-6)', () => {
+  it('editable pivot cell: typed edit is event-routed with intersection context', () => {
     interface PRow {
       item: string;
       store: string;
@@ -237,7 +237,7 @@ describe('Grid composition root', () => {
     grid.destroy();
   });
 
-  it('grouped (non-pivot) editable aggregate cell routes with empty pivotKeys (AUG-6)', () => {
+  it('grouped (non-pivot) editable aggregate cell routes with empty pivotKeys', () => {
     const requests: import('./types/events.js').CellEditRequestEvent<Row>[] = [];
     const { grid } = mount({
       columnDefs: [
@@ -265,7 +265,7 @@ describe('Grid composition root', () => {
     grid.destroy();
   });
 
-  it('editable callback on aggregate cells receives pivot context (AUG-6)', () => {
+  it('editable callback on aggregate cells receives pivot context', () => {
     const seen: unknown[] = [];
     const { grid } = mount({
       columnDefs: [

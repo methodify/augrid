@@ -1,6 +1,6 @@
 {
   "name": "@augrid/core",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "AuGrid \u2014 a free, high-performance data grid. Framework-agnostic core.",
   "license": "MIT",
   "type": "module",
@@ -35,6 +35,7 @@
     "url": "git+https://github.com/methodify/augrid.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/methodify/augrid",
-  "bugs": "https://github.com/methodify/augrid/issues"
+  "homepage": "https://methodify.github.io/augrid/",
+  "bugs": "https://github.com/methodify/augrid/issues",
+  "author": "Bryon Williams"
 }

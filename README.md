@@ -11,19 +11,16 @@ free, in one small, zero-dependency package.
 1M rows, editable pivots, server-side trees, sparklines, Excel export — the real grid
 running in your browser, no install.
 
-**Installing (pre-npm):** AuGrid is not on npm yet. Install the built tarballs from the
-latest [GitHub Release](https://github.com/methodify/augrid/releases) — works with npm,
-pnpm, yarn, and bun:
+**Installing:**
 
 ```
-npm add https://github.com/methodify/augrid/releases/download/v0.6.0/augrid-core-0.6.0.tgz \
-        https://github.com/methodify/augrid/releases/download/v0.6.0/augrid-react-0.6.0.tgz
+npm add @augrid/core          # framework-agnostic core (zero dependencies)
+npm add @augrid/react         # React wrapper (peer-depends on core)
 ```
 
-Install both together: `@augrid/react` declares `@augrid/core` as a peer dependency.
-(Once published to npm this becomes `npm add @augrid/core @augrid/react`.)
+Built tarballs are also attached to every [GitHub Release](https://github.com/methodify/augrid/releases).
 Note: a plain git dependency on this repo does NOT work — it's a source-only monorepo;
-the release tarballs are the built artifacts.
+npm packages and release tarballs are the built artifacts.
 
 ## Quick start (vanilla)
 
@@ -76,7 +73,7 @@ import { AuGrid, reactComponent } from '@augrid/react';
   zero layout reads in the scroll path, incremental pipeline recompute, transactions with
   `getRowId` diffing, async transaction batching. O(viewport) DOM at any row count —
   measured ~6ms per render pass at 100k rows (see the Benchmark demo; very large
-  row counts are tracked in AUG-31).
+  row counts are being re-measured with a sounder methodology).
 - **Data**: client-side row model (sort → filter → group → aggregate → pivot → flatten) and
   infinite (block-cached server) row model behind one `RowModel` interface.
 - **Columns**: groups, pinning, drag reorder, drag/auto resize, flex, types ladder, state

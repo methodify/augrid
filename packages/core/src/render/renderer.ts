@@ -680,7 +680,7 @@ export class GridRenderer<TData = unknown> {
     if (this.ctx.options.is('suppressColumnVirtualisation')) return center;
     if (this.viewportWidth <= 0) {
       // Unmeasured viewport (hidden or not-yet-laid-out host): render a
-      // bounded prefix instead of every column — at Plank-scale widths
+      // bounded prefix instead of every column — at planning-grid widths
       // (400+ columns) an unbounded fallback builds hundreds of thousands
       // of throwaway cells before the first ResizeObserver tick. The first
       // measured pass replaces this window.

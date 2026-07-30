@@ -12,7 +12,7 @@ import type {
 import type { CellEditRequestEvent } from '../types/events.js';
 
 /**
- * Fake hierarchy shaped like Plank's cases: Region → Store → SKU, including a
+ * Fake hierarchy shaped like a real consumer's cases: Region → Store → SKU, including a
  * BLANK (null) region and a numeric store key. Group rows carry
  * server-computed totals in `qty`.
  */
@@ -253,7 +253,7 @@ describe('ServerSideRowModel + Grid (DOM / write-back)', () => {
   });
 });
 
-describe('ServerSideRowModel loading UX (AUG-23)', () => {
+describe('ServerSideRowModel loading UX', () => {
   /** Datasource that captures requests; tests resolve manually. */
   function manualDatasource(): {
     ds: ServerSideDatasource<Row>;

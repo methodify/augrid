@@ -3,9 +3,25 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.8.0 — 2026-07-30
+
+**First npm release** — `@augrid/core` and `@augrid/react` are now on the
+public registry:
+
+```
+npm add @augrid/core @augrid/react
+```
+
+- Per-package READMEs and LICENSE files; package metadata (homepage → live
+  demo, keywords, bugs) filled in for the registry.
+- Docs cleanup: neutral comparison language and internal tracker/consumer
+  references removed from all published surfaces.
+- No functional changes to the grid since 0.7.1. GitHub Release tarballs
+  continue to ship alongside npm for existing consumers.
+
 ## 0.7.1 — 2026-07-29
 
-- **Fix: native Excel sparklines rendered blank in real Excel** (AUG-29).
+- **Fix: native Excel sparklines rendered blank in real Excel.**
   Excel sparklines ignore data in hidden rows/columns by default, and the
   exported series lives in hidden columns — so every group plotted nothing
   (the group existed: ribbon activated, anchor cells highlighted). Every
@@ -15,7 +31,7 @@ All notable changes to AuGrid will be documented in this file. Versions follow
 
 ## 0.7.0 — 2026-07-28
 
-**Cell hover events + blessed DOM contract** — rich hovercards app-side (AUG-33).
+**Cell hover events + blessed DOM contract** — rich hovercards app-side.
 
 - **`cellMouseOver` / `cellMouseOut`** events (standard grid event semantics): fire once per
   cell entry/exit off the grid's existing delegated hover path — no per-cell
@@ -30,12 +46,11 @@ All notable changes to AuGrid will be documented in this file. Versions follow
   delegated handlers run on.
 - New recipe: cell markers ("pips") with rich hovercards — CSS-only corner
   glyphs plus an app-rendered card on the new events; header variant included.
-- First-class component tooltips (`tooltipComponent`) tracked as AUG-34.
+- First-class component tooltips (`tooltipComponent`) are on the roadmap.
 
 ## 0.6.0 — 2026-07-25
 
-**Sparkline interaction + native Excel export** — cell visuals phases 3 & 4
-(AUG-28, AUG-29).
+**Sparkline interaction + native Excel export** — cell visuals phases 3 & 4.
 
 - **Hover readout**: pointing at a series mark shows the value under the
   cursor (column-formatted; `pointLabel` customizes). One delegated listener
@@ -58,7 +73,7 @@ All notable changes to AuGrid will be documented in this file. Versions follow
 
 ## 0.5.0 — 2026-07-25
 
-**Planning marks** — cell visuals phase 2 (AUG-27), on phase 1's scale engine.
+**Planning marks** — cell visuals phase 2, on phase 1's scale engine.
 
 - **`bullet`**: actual vs `target` (a number or a function of the row) with
   optional qualitative `bands` — the "did we hit plan?" mark.
@@ -79,7 +94,7 @@ All notable changes to AuGrid will be documented in this file. Versions follow
 
 ## 0.4.0 — 2026-07-25
 
-**Sparklines** — phase 1 of the cell-visuals surface (AUG-25 design, AUG-26).
+**Sparklines** — phase 1 of the cell-visuals surface.
 Declare `colDef.sparkline`; the cell value is the series.
 
 - Marks: `line`, `area`, `column`, `winLoss`, with first/last/min/max
@@ -120,7 +135,7 @@ validation):
 
 ## 0.3.0 — 2026-07-24
 
-**Excel (.xlsx) export** (AUG-10) — an in-house, dependency-free writer
+**Excel (.xlsx) export** — an in-house, dependency-free writer
 (ZIP container + SpreadsheetML), honoring the zero-runtime-deps rule:
 
 - `api.exportDataAsExcel(params?)` downloads; `api.getDataAsExcel(params?)`
@@ -143,8 +158,8 @@ validation):
 
 ## 0.2.1 — 2026-07-24
 
-- **Server-side expand no longer flashes a block of blank rows** (AUG-23,
-  reported by Plank): a store now allocates ONE loading row until its first
+- **Server-side expand no longer flashes a block of blank rows** (consumer
+  report): a store now allocates ONE loading row until its first
   block lands (or exactly the known child count when a prior load reported
   it) instead of a speculative `cacheBlockSize` allocation that pushed
   content down and snapped back.
@@ -156,8 +171,8 @@ validation):
 ## 0.2.0 — 2026-07-24
 
 **Server-side row model** (`rowModelType: 'serverSide'`) — lazy per-parent
-group expansion for hierarchies too large to materialize (AUG-8/AUG-20;
-contract co-designed with Plank):
+group expansion for hierarchies too large to materialize (contract
+co-designed with a consumer team):
 
 - One `serverSideDatasource.getRows` per expansion, block-windowed within
   each parent (`cacheBlockSize`) for very wide parents.
@@ -181,13 +196,13 @@ contract co-designed with Plank):
 
 ## 0.1.3 — 2026-07-24
 
-- **Boot-render cliff fix at high column counts** (found via Plank's AUG-21
+- **Boot-render cliff fix at high column counts** (found via a consumer's
   benchmark request): when a grid boots in an unmeasured container (hidden
   tab, display:none, not yet laid out), the render fallbacks built up to 501
   rows × ALL columns of throwaway cells — ~8s at 400 columns. Both fallbacks
   are now bounded prefixes (~100 rows × ~2400px of columns) that self-heal on
   the first measured pass. 400-column × 40-group benchmark added to the suite.
-- **Infinite model, targeted refresh** (AUG-22):
+- **Infinite model, targeted refresh**:
   `api.refreshInfiniteCache({ fromRow, toRow })` refetches only the cached
   blocks a row range touches; refresh (full or ranged) is in place — rows
   stay visible until replaced, and row selection now carries across refetch
@@ -198,7 +213,7 @@ contract co-designed with Plank):
 - Fix: numeric columns now right-align (cells, headers, inline editor input).
   The alignment rule targeted the flex cell container, but the value span
   flex-grows to fill the cell, so numbers rendered left-aligned everywhere.
-  Reported by mosaic-ui. `cellDataType` inference is unchanged — columns with
+  Reported by a consumer. `cellDataType` inference is unchanged — columns with
   numeric first-row values get this automatically; declare
   `cellDataType: 'number'` to force it.
 
@@ -207,8 +222,7 @@ contract co-designed with Plank):
 First **externally consumable** release: built `@augrid/core` and `@augrid/react`
 tarballs are attached to the GitHub Release (installable via URL with
 npm/pnpm/yarn/bun — see README "Installing"). A plain git dependency on the repo
-was never consumable (source-only monorepo, no `dist`); reported by mosaic-ui
-as AUG-18.
+was never consumable (source-only monorepo, no `dist`); consumer report.
 
 - Packaging: `prepack` build hooks; `repository`/`homepage`/`bugs` metadata;
   emitted ESM now uses `.js`-extensioned relative imports (strict-ESM/Node
