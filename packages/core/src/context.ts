@@ -207,12 +207,24 @@ export interface IPaginationService<TData = unknown> {
 export interface IColumnDragService {
   /** Wire drag-to-reorder on a header cell element. */
   attachHeaderDrag(headerEl: HTMLElement, colId: string): void;
+  /**
+   * True exactly once after a reorder drag ends (past the 4px threshold):
+   * the browser synthesizes a click from the drag's mousedown/mouseup pair,
+   * and that click must not reach header actions (sort). Consuming resets it.
+   */
+  shouldSwallowClick(): boolean;
   destroy(): void;
 }
 
 export interface IColumnResizeService {
   /** Wire the resize grip on a header cell element. */
   attachResizeGrip(headerEl: HTMLElement, colId: string): void;
+  /**
+   * True exactly once after a resize gesture ends: the browser synthesizes a
+   * click from the drag's mousedown/mouseup pair, and that click must not
+   * reach header actions (sort). Consuming resets the flag.
+   */
+  shouldSwallowClick(): boolean;
   destroy(): void;
 }
 

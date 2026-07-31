@@ -115,6 +115,61 @@ describe('ColumnResizeService', () => {
   });
 });
 
+describe('ColumnResizeService — post-gesture click suppression', () => {
+  it('swallows exactly one click after mouseup, then clears', () => {
+    const { service, grip } = setupResize();
+    expect(service.shouldSwallowClick()).toBe(false);
+    grip.dispatchEvent(mouse('mousedown', { clientX: 200 }));
+    document.dispatchEvent(mouse('mousemove', { clientX: 240 }));
+    document.dispatchEvent(mouse('mouseup', { clientX: 240 }));
+    expect(service.shouldSwallowClick()).toBe(true);   // the synthesized click
+    expect(service.shouldSwallowClick()).toBe(false);  // consumed
+  });
+
+  it('arms suppression on Escape-cancel too (the release still clicks)', () => {
+    const { service, grip } = setupResize();
+    grip.dispatchEvent(mouse('mousedown', { clientX: 200 }));
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    expect(service.shouldSwallowClick()).toBe(true);
+  });
+
+  it('a stale flag self-clears on the next tick', async () => {
+    const { service, grip } = setupResize();
+    grip.dispatchEvent(mouse('mousedown', { clientX: 200 }));
+    document.dispatchEvent(mouse('mouseup', { clientX: 210 }));
+    await new Promise((r) => setTimeout(r, 1));
+    expect(service.shouldSwallowClick()).toBe(false);
+  });
+});
+
+describe('ColumnDragService — post-drag click suppression', () => {
+  it('swallows the click after a real drag, but not after a threshold click', () => {
+    const { service, headers } = setupDrag([{ field: 'a' }, { field: 'b' }]);
+    const h = headers.get('a')!;
+    // Below the 4px threshold: a plain click, must NOT be swallowed (sort path).
+    h.dispatchEvent(mouse('mousedown', { clientX: 10, clientY: 5 }));
+    document.dispatchEvent(mouse('mouseup', { clientX: 10, clientY: 5 }));
+    expect(service.shouldSwallowClick()).toBe(false);
+    // A real drag: the synthesized click is swallowed exactly once.
+    h.dispatchEvent(mouse('mousedown', { clientX: 10, clientY: 5 }));
+    document.dispatchEvent(mouse('mousemove', { clientX: 60, clientY: 5 }));
+    document.dispatchEvent(mouse('mouseup', { clientX: 60, clientY: 5 }));
+    expect(service.shouldSwallowClick()).toBe(true);
+    expect(service.shouldSwallowClick()).toBe(false);
+  });
+
+  it('arms suppression when Escape cancels an in-flight drag', () => {
+    const { service, headers } = setupDrag([{ field: 'a' }, { field: 'b' }]);
+    const h = headers.get('a')!;
+    h.dispatchEvent(mouse('mousedown', { clientX: 10, clientY: 5 }));
+    document.dispatchEvent(mouse('mousemove', { clientX: 60, clientY: 5 }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(service.shouldSwallowClick()).toBe(true);
+  });
+});
+
 describe('computeDropTarget / computeIndicatorX (pure)', () => {
   const regions: RegionGeom = {
     rootWidth: 400,

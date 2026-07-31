@@ -3,6 +3,16 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.8.1 — 2026-07-31
+
+- **Fix: releasing a column resize (or reorder) drag no longer sorts the
+  column.** The browser synthesizes a `click` from a drag's mousedown/mouseup
+  pair at their common ancestor — the header cell — which then reached the
+  sort handler. Both gestures now arm a one-shot click suppression consumed
+  by the grid's delegated click handler (self-clearing, so no unrelated
+  click is ever swallowed); clicks on the resize grip itself are inert.
+  Plain clicks and sub-threshold (<4px) drags still sort normally.
+
 ## 0.8.0 — 2026-07-30
 
 **First npm release** — `@augrid/core` and `@augrid/react` are now on the

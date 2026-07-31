@@ -11,6 +11,8 @@ export class ColumnResizeService implements IColumnResizeService {
   private ctx: GridContext<any>;
   /** Cleanup for the currently active drag gesture (document listeners). */
   private activeCleanup: (() => void) | null = null;
+  /** Set when a gesture ends; the next (synthesized) click is swallowed. */
+  private suppressNextClick = false;
 
   constructor(ctx: GridContext<any>) {
     this.ctx = ctx;
@@ -46,11 +48,14 @@ export class ColumnResizeService implements IColumnResizeService {
     };
     const onMouseUp = (e: MouseEvent): void => {
       cleanup();
+      this.armClickSuppression();
       this.applyWidth(colId, startWidth + (e.clientX - startX), true, 'ui');
     };
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
         cleanup();
+        // The eventual mouse release still synthesizes a click.
+        this.armClickSuppression();
         // Restore the width the column had when the gesture started.
         this.applyWidth(colId, startWidth, true, 'ui');
       }
@@ -66,6 +71,25 @@ export class ColumnResizeService implements IColumnResizeService {
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
     document.addEventListener('keydown', onKeyDown);
+  }
+
+  shouldSwallowClick(): boolean {
+    const v = this.suppressNextClick;
+    this.suppressNextClick = false;
+    return v;
+  }
+
+  /**
+   * The click synthesized from this gesture's mousedown/mouseup pair fires
+   * synchronously after mouseup; anything still set a tick later is stale
+   * (e.g. the release happened outside the grid), so it self-clears rather
+   * than swallowing some unrelated future click.
+   */
+  private armClickSuppression(): void {
+    this.suppressNextClick = true;
+    setTimeout(() => {
+      this.suppressNextClick = false;
+    }, 0);
   }
 
   private applyWidth(colId: string, width: number, finished: boolean, source: string): void {

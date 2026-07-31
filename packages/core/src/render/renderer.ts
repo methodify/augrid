@@ -386,6 +386,15 @@ export class GridRenderer<TData = unknown> {
 
   private onClick(e: MouseEvent): void {
     const target = e.target as HTMLElement;
+    // Resize and reorder drags end with a browser-synthesized click
+    // (mousedown + mouseup share the header cell as ancestor) that would
+    // otherwise reach the sort handler. Guard the element (clicks on the
+    // grip are never actions) and both gestures — consume BOTH flags even
+    // though one hit suffices, so neither goes stale.
+    const swallowResize = this.ctx.columnResize?.shouldSwallowClick() ?? false;
+    const swallowDrag = this.ctx.columnDrag?.shouldSwallowClick() ?? false;
+    if (closestWithAttr(target, 'data-au-resize', this.eRoot)) return;
+    if (swallowResize || swallowDrag) return;
     // header interactions — the menu button sits inside sortable cells, so it
     // must win over the sort handler.
     const menuBtn = closestWithAttr(target, 'data-au-col-menu', this.eRoot);

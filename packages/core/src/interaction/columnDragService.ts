@@ -108,9 +108,25 @@ export class ColumnDragService implements IColumnDragService {
   private ctx: GridContext<any>;
   /** Cleanup for the currently active drag gesture. */
   private activeCleanup: (() => void) | null = null;
+  /** Set when a real drag ends; the next (synthesized) click is swallowed. */
+  private suppressNextClick = false;
 
   constructor(ctx: GridContext<any>) {
     this.ctx = ctx;
+  }
+
+  shouldSwallowClick(): boolean {
+    const v = this.suppressNextClick;
+    this.suppressNextClick = false;
+    return v;
+  }
+
+  /** Self-clears next tick: a release outside the grid produces no click. */
+  private armClickSuppression(): void {
+    this.suppressNextClick = true;
+    setTimeout(() => {
+      this.suppressNextClick = false;
+    }, 0);
   }
 
   attachHeaderDrag(headerEl: HTMLElement, colId: string): void {
@@ -180,12 +196,21 @@ export class ColumnDragService implements IColumnDragService {
       const target = lastTarget;
       const regions = lastRegions;
       cleanup();
-      if (!wasDragging || !target || !regions) return;
+      // Below the 4px threshold this was a plain click — let it through
+      // (that's the normal click-to-sort path). A real drag's release must
+      // not double as one.
+      if (!wasDragging) return;
+      this.armClickSuppression();
+      if (!target || !regions) return;
       this.completeDrop(colId, target, regions);
     };
 
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') cleanup();
+      if (e.key === 'Escape') {
+        // The eventual release still synthesizes a click if a drag began.
+        if (dragging) this.armClickSuppression();
+        cleanup();
+      }
     };
 
     const cleanup = (): void => {

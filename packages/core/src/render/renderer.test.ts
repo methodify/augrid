@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createMockContext } from '../test/mockContext.js';
 import { GridRenderer } from './renderer.js';
 import type { GridOptions } from '../types/gridOptions.js';
+import { ColumnResizeService } from '../interaction/columnResizeService.js';
+import { ColumnDragService } from '../interaction/columnDragService.js';
 
 interface Row {
   id: string;
@@ -671,5 +673,66 @@ describe('GridRenderer — cellMouseOver / cellMouseOut', () => {
     header.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     expect(events.map((e) => e.type)).toEqual(['cellMouseOver', 'cellMouseOut']);
     expect(events[1]).toMatchObject({ rowIndex: 2, colId: 'name' });
+  });
+});
+
+describe('GridRenderer — resize drag must not trigger sort (header click suppression)', () => {
+  function sortSetup() {
+    const { ctx, renderer, host } = setup({}, 10);
+    ctx.columnResize = new ColumnResizeService(ctx);
+    ctx.columnDrag = new ColumnDragService(ctx);
+    const sorts: string[] = [];
+    ctx.sort.progressSort = (col) => sorts.push(col.colId);
+    renderer.markHeaderDirty();
+    renderer.setViewportSizeForTesting(800, 300);
+    renderer.renderNow();
+    const headerCell = host.querySelector('[data-au-header-col="name"]') as HTMLElement;
+    const grip = headerCell.querySelector('[data-au-resize="name"]') as HTMLElement;
+    expect(grip).toBeTruthy();
+    const mouse = (type: string, init: MouseEventInit = {}) =>
+      new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init });
+    return { ctx, renderer, host, headerCell, grip, sorts, mouse };
+  }
+
+  it('the click synthesized after a resize drag does not sort', () => {
+    const { ctx, headerCell, grip, sorts, mouse } = sortSetup();
+    grip.dispatchEvent(mouse('mousedown', { clientX: 100 }));
+    document.dispatchEvent(mouse('mousemove', { clientX: 140 }));
+    document.dispatchEvent(mouse('mouseup', { clientX: 140 }));
+    expect(ctx.columnModel.getColumn('name')!.actualWidth).toBe(240);
+    // the browser now synthesizes a click at the common ancestor — the header cell
+    headerCell.dispatchEvent(mouse('click', { clientX: 140 }));
+    expect(sorts).toEqual([]);
+    // a subsequent intentional click still sorts (flag was one-shot)
+    headerCell.dispatchEvent(mouse('click'));
+    expect(sorts).toEqual(['name']);
+  });
+
+  it('a click landing on the grip itself never sorts', () => {
+    const { grip, sorts, mouse } = sortSetup();
+    grip.dispatchEvent(mouse('click'));
+    expect(sorts).toEqual([]);
+  });
+
+  it('the click synthesized after a reorder drag does not sort', () => {
+    const { headerCell, sorts, mouse } = sortSetup();
+    headerCell.dispatchEvent(mouse('mousedown', { clientX: 100, clientY: 10 }));
+    document.dispatchEvent(mouse('mousemove', { clientX: 160, clientY: 10 }));
+    document.dispatchEvent(mouse('mouseup', { clientX: 160, clientY: 10 }));
+    headerCell.dispatchEvent(mouse('click', { clientX: 160 }));
+    expect(sorts).toEqual([]);
+    // intentional clicks (below the drag threshold) still sort
+    headerCell.dispatchEvent(mouse('mousedown', { clientX: 100, clientY: 10 }));
+    document.dispatchEvent(mouse('mouseup', { clientX: 101, clientY: 10 }));
+    headerCell.dispatchEvent(mouse('click'));
+    expect(sorts).toEqual(['name']);
+  });
+
+  it('a zero-movement press-release on the grip does not sort', () => {
+    const { headerCell, grip, sorts, mouse } = sortSetup();
+    grip.dispatchEvent(mouse('mousedown', { clientX: 100 }));
+    document.dispatchEvent(mouse('mouseup', { clientX: 100 }));
+    headerCell.dispatchEvent(mouse('click', { clientX: 100 }));
+    expect(sorts).toEqual([]);
   });
 });
