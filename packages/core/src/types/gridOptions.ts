@@ -207,6 +207,11 @@ export interface GridOptions<TData = unknown> extends GridOptionEventCallbacks<T
   loading?: boolean;
   overlayNoRowsTemplate?: string;
   tooltipShowDelay?: number;
+  /**
+   * Keep a shown tooltip open while the pointer is over it (grace period to
+   * travel from cell to tooltip). Required for tooltips with links/actions.
+   */
+  tooltipInteraction?: boolean;
 
   /* clipboard / fill */
   copyHeadersToClipboard?: boolean;

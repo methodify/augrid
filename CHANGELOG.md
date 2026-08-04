@@ -3,6 +3,37 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.9.0 — 2026-08-04
+
+**Editing correctness + rich tooltips** — two consumer-reported edit bugs and
+the component-tooltip surface.
+
+- **Fix: fast typing into a cell no longer loses characters.** Edit-by-typing
+  installed edit state synchronously but mounted the editor on the next
+  animation frame — printable keys arriving inside that one-frame window
+  (ordinary typing speed: type `120` quickly and `1` was committed) landed on
+  neither side of the seam. The editor now mounts synchronously on edit
+  start. Regression test drives two keystrokes inside one held frame.
+- **New event `cellEditRejected`**: when `validateEdit` rejects a commit, the
+  grid now dispatches `{node, colId, oldValue, newValue, source, error}` —
+  previously the validator's message was dropped and a rejected edit was
+  indistinguishable from no edit, for the host and the user. Fires for every
+  commit path (typing, paste, fill), including under `readOnlyEdit`.
+- **`tooltipComponent` on ColDef**: rich tooltip content with grid-managed
+  lifecycle (show delay, positioning, viewport clamping, cleanup). Works with
+  `reactComponent()` in @augrid/react. The resolved
+  `tooltipField`/`tooltipValueGetter` string gates visibility and arrives as
+  `params.tip`; with no string source the component shows on every hover.
+- **`tooltipInteraction` option**: the tooltip stays open while the pointer
+  is over it (grace period to travel from cell to tooltip) — for cards with
+  links/actions.
+- **Hover-surface precedence is now stated, not emergent**: series-sparkline
+  point readout owns its column's hover unless `suppressInteraction`; then
+  string/component tooltips; app-side `cellMouseOver`/`cellMouseOut` events
+  always fire (they're data, not a visual surface). Documented in RECIPES.
+- Demo: the Write-back page shows validation rejection feedback and a
+  component tooltip with `tooltipInteraction`.
+
 ## 0.8.1 — 2026-07-31
 
 - **Fix: releasing a column resize (or reorder) drag no longer sorts the

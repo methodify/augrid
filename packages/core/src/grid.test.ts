@@ -346,3 +346,51 @@ describe('Grid composition root', () => {
     grid.destroy();
   });
 });
+
+describe('edit-by-typing mount race (characters within one frame of the first)', () => {
+  it('every character typed before the editor mounts survives', () => {
+    // Hold rAF in a queue: two keystrokes inside one frame is exactly what a
+    // fast typist does; the editor must exist synchronously on edit start.
+    const rafQueue: FrameRequestCallback[] = [];
+    const rafSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((cb) => (rafQueue.push(cb), rafQueue.length));
+    const flushFrame = () => rafQueue.splice(0).forEach((cb) => cb(0));
+
+    const { grid, host } = mount();
+    const root = host.querySelector('.au-root') as HTMLElement;
+    grid.api.setFocusedCell(0, 'name');
+    flushFrame();
+
+    const type = (key: string) => {
+      // Keydown lands on the focused element (the editor input once mounted)
+      // and bubbles to .au-root — dispatching at the container would reach
+      // nothing, the listener is on root.
+      const active = document.activeElement;
+      const target = active && root.contains(active) ? active : root;
+      const ev = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      target.dispatchEvent(ev);
+      // jsdom has no default action: model the browser inserting the
+      // character IFF an editor input holds focus and nothing consumed it.
+      if (
+        key.length === 1 &&
+        !ev.defaultPrevented &&
+        document.activeElement instanceof HTMLInputElement &&
+        root.contains(document.activeElement)
+      ) {
+        document.activeElement.value += key;
+      }
+    };
+
+    type('1');
+    type('2');
+    type('0'); // no frame between keystrokes
+    flushFrame();
+    type('Enter');
+    flushFrame();
+
+    expect(grid.api.getDisplayedRowAtIndex(0)!.data!.name).toBe('120');
+    grid.destroy();
+    rafSpy.mockRestore();
+  });
+});

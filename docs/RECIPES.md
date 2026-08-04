@@ -486,9 +486,36 @@ ones AuGrid's own delegated handlers run on):
 Two rules: **don't cache** element→row mappings (rows are virtualized and
 recycled — re-read attributes per event), and don't assume one element per
 row (pinned columns mean up to three band elements share one
-`data-au-row-id`). If your card needs the grid to own delay/positioning or
-stay open under the pointer, that's first-class component tooltips — on the
-roadmap.
+`data-au-row-id`).
+
+**Grid-managed alternative (v0.9.0+): `tooltipComponent`.** If you'd rather
+the grid own the delay, positioning, viewport clamping, and lifecycle, give
+the column a component; the resolved tooltip string gates visibility and
+arrives as `params.tip`:
+
+```ts
+{
+  field: 'revenue',
+  tooltipValueGetter: (p) => findings.get(key(p))?.message ?? null, // null = no tooltip
+  tooltipComponent: class {
+    init(p) {
+      const el = document.createElement('div');
+      el.className = 'finding-card';
+      el.textContent = `⚠ ${p.tip}`;
+      return el;
+    }
+  },
+}
+// React: tooltipComponent: reactComponent(FindingCard) — p.tip as a prop.
+// gridOptions: { tooltipInteraction: true } keeps the card open while the
+// pointer is over it (needed for links/actions inside the card).
+```
+
+**Hover-surface precedence** (one stated order, not emergent): a series
+sparkline's point readout owns its column's hover unless the column sets
+`suppressInteraction`; then string/component tooltips; app-side
+`cellMouseOver`/`cellMouseOut` events always fire regardless — they're data,
+not a visual surface, so both approaches compose.
 
 ## Persisting user layout
 

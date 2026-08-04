@@ -46,6 +46,20 @@ export interface CellValueChangedEvent<TData = unknown> extends CellEvent<TData>
 /** Fired instead of mutating when readOnlyEdit is on. */
 export interface CellEditRequestEvent<TData = unknown> extends CellValueChangedEvent<TData> {}
 
+/**
+ * Fired when `validateEdit` rejects a commit — the value did NOT land.
+ * `error` is the exact string the validator returned: show it to the user.
+ */
+export interface CellEditRejectedEvent<TData = unknown> extends CellEvent<TData> {
+  oldValue: unknown;
+  /** The rejected (already-parsed) value. */
+  newValue: unknown;
+  /** 'edit' | 'paste' | 'fill' | custom — same vocabulary as cellValueChanged. */
+  source: string;
+  /** The validator's message. */
+  error: string;
+}
+
 export interface CellEditingEvent<TData = unknown> extends CellEvent<TData> {}
 
 export interface SelectionChangedEvent<TData = unknown> extends AuEvent<TData> {
@@ -208,6 +222,7 @@ export interface GridEventMap<TData = unknown> {
   rowEditingStopped: RowEvent<TData>;
   cellValueChanged: CellValueChangedEvent<TData>;
   cellEditRequest: CellEditRequestEvent<TData>;
+  cellEditRejected: CellEditRejectedEvent<TData>;
   rowValueChanged: RowEvent<TData>;
   pasteStart: PasteEvent<TData>;
   pasteEnd: PasteEvent<TData>;

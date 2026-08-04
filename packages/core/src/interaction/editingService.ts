@@ -161,7 +161,7 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
         rowIndex,
         event,
       });
-      this.ctx.scheduleRender();
+      this.ctx.renderNow();
       return true;
     }
 
@@ -171,7 +171,12 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
     this.fullRow = false;
     this.focusColId = colId;
     this.dispatchCellEditingEvent('cellEditingStarted', st, event);
-    this.ctx.scheduleRender();
+    // Synchronous render, NOT scheduleRender: with rAF batching there is a
+    // one-frame window where isEditing() is true but no editor input exists,
+    // and printable keys typed in it vanish (a fast typist reliably puts the
+    // 2nd character of "120" inside the frame). The editor must be mounted
+    // and focused before this call returns.
+    this.ctx.renderNow();
     return true;
   }
 
@@ -436,13 +441,30 @@ export class EditingService<TData = unknown> implements IEditingService<TData> {
 
     const validate = this.ctx.options.get('validateEdit');
     if (validate) {
-      const error = validate({
-        node,
-        colId,
-        oldValue: this.ctx.values.getValue(node, column),
-        newValue: value,
-      });
-      if (typeof error === 'string') return false;
+      const oldValue = this.ctx.values.getValue(node, column);
+      const error = validate({ node, colId, oldValue, newValue: value });
+      if (typeof error === 'string') {
+        // The message is the point of returning a string instead of a
+        // boolean — without this event a rejected edit is indistinguishable
+        // from no edit, for the host AND the user.
+        this.ctx.events.dispatch({
+          type: 'cellEditRejected',
+          api: this.ctx.api,
+          context: this.ctx.options.get('context'),
+          node,
+          data: node.data,
+          column: column as unknown as IColumn<TData>,
+          colDef: column.getColDef(),
+          colId,
+          value: oldValue,
+          rowIndex: node.rowIndex,
+          oldValue,
+          newValue: value,
+          source,
+          error,
+        });
+        return false;
+      }
     }
 
     return this.ctx.values.setValue(node, colId, value, source);

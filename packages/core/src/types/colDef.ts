@@ -148,6 +148,23 @@ export interface HeaderComp<TData = unknown> {
   destroy?(): void;
 }
 
+export interface TooltipCompParams<TData = unknown> extends TooltipParams<TData> {
+  /**
+   * The resolved tooltipField/tooltipValueGetter string, or null when the
+   * column configures neither. The string gates visibility when configured;
+   * the component owns presentation.
+   */
+  tip: string | null;
+  rowIndex: number;
+}
+
+/** Rich tooltip content: the grid owns delay/positioning/lifecycle, the
+ * component owns the content element. */
+export interface TooltipComp<TData = unknown> {
+  init(params: TooltipCompParams<TData>): HTMLElement;
+  destroy?(): void;
+}
+
 /* -------------------------------------------------------------- aggregation */
 
 export interface AggFuncParams<TData = unknown> {
@@ -249,6 +266,14 @@ export interface ColDef<TData = unknown> {
   enableCellChangeFlash?: boolean;
   tooltipField?: string;
   tooltipValueGetter?: (params: TooltipParams<TData>) => string | null | undefined;
+  /**
+   * Rich tooltip content component (grid-managed lifecycle: show delay,
+   * positioning, viewport clamping). With `tooltipField`/`tooltipValueGetter`
+   * configured, the resolved string gates visibility (null/'' = no tooltip)
+   * and reaches the component as `params.tip`; with neither configured the
+   * component shows on every cell hover.
+   */
+  tooltipComponent?: (new () => TooltipComp<TData>) | { readonly __frameworkComponent: unknown };
   autoHeight?: boolean;
   wrapText?: boolean;
 

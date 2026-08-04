@@ -230,6 +230,32 @@ describe('EditingService — commit / cancel flow', () => {
     svc.destroy();
   });
 
+  it('validateEdit rejection dispatches cellEditRejected carrying the message', () => {
+    const { ctx, svc } = setup({
+      validateEdit: ({ newValue }) =>
+        (newValue as number) < 0 ? 'Reorder quantity cannot be negative.' : null,
+    });
+    const rejected: { colId: string; oldValue: unknown; newValue: unknown; error: string; source: string }[] = [];
+    ctx.events.addEventListener('cellEditRejected', (e) =>
+      rejected.push({ colId: e.colId, oldValue: e.oldValue, newValue: e.newValue, error: e.error, source: e.source }),
+    );
+    const node = ctx.rowModel.getRow(0)!;
+    expect(svc.commitValue(node, 'age', '-5', 'edit', true)).toBe(false);
+    expect(rejected).toEqual([
+      {
+        colId: 'age',
+        oldValue: 30,
+        newValue: -5, // already parsed — what the validator judged
+        error: 'Reorder quantity cannot be negative.',
+        source: 'edit',
+      },
+    ]);
+    // Accepted commits fire no rejection.
+    expect(svc.commitValue(node, 'age', '5', 'edit', true)).toBe(true);
+    expect(rejected.length).toBe(1);
+    svc.destroy();
+  });
+
   it('readOnlyEdit fires cellEditRequest and never mutates data', () => {
     const { ctx, svc } = setup({ readOnlyEdit: true });
     const requests: { colId: string; newValue: unknown }[] = [];

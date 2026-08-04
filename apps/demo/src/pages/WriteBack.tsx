@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { AuGrid } from '@augrid/react';
-import type { CellEditRequestEvent, ColDef, GridApi } from '@augrid/core';
+import { AuGrid, reactComponent } from '@augrid/react';
+import type { CellEditRejectedEvent, CellEditRequestEvent, ColDef, GridApi } from '@augrid/core';
 import type { PageProps } from '../App';
 import { COUNTRIES, makeRows, type Row } from '../data';
 
@@ -8,6 +8,18 @@ const NUMERIC_FIELDS = new Set(['gold', 'silver', 'bronze', 'total', 'year']);
 
 const DEFAULT_COL_DEF: ColDef<Row> = { sortable: true, resizable: true };
 const getRowId = (p: { data: Row }) => p.data.id;
+
+/** Rich grid-managed tooltip (tooltipComponent): medal breakdown card. */
+function MedalCard({ data }: { data?: Row }) {
+  if (!data) return null;
+  return (
+    <div style={{ display: 'grid', gap: 2, fontSize: 12, lineHeight: 1.4 }}>
+      <strong>{data.athlete}</strong>
+      <span>🥇 {data.gold} · 🥈 {data.silver} · 🥉 {data.bronze}</span>
+      <span style={{ opacity: 0.7 }}>hover me — I stay open (tooltipInteraction)</span>
+    </div>
+  );
+}
 
 /**
  * Fabric-style write-back loop: the grid is readOnlyEdit — it never mutates
@@ -67,7 +79,7 @@ export function WriteBack({ theme }: PageProps) {
       { field: 'gold', editable: true, cellEditor: 'number', width: 90 },
       { field: 'silver', editable: true, cellEditor: 'number', width: 90 },
       { field: 'bronze', editable: true, cellEditor: 'number', width: 90 },
-      { field: 'total', width: 100 },
+      { field: 'total', width: 100, tooltipComponent: reactComponent(MedalCard) },
     ],
     [],
   );
@@ -81,6 +93,8 @@ export function WriteBack({ theme }: PageProps) {
         <p className="demo-note">
           readOnlyEdit grid — edits go to a fake server (300ms) and come back via
           applyTransaction. Double-click a cell to edit; total is recomputed server-side.
+          Try a negative medal count: validateEdit rejects it and cellEditRejected
+          carries the message (see log). Hover a Total cell for a component tooltip.
         </p>
       </div>
       <div className="demo-split">
@@ -93,6 +107,16 @@ export function WriteBack({ theme }: PageProps) {
               getRowId={getRowId}
               readOnlyEdit={true}
               enableCellChangeFlash={true}
+              validateEdit={(p) =>
+                NUMERIC_FIELDS.has(p.colId) && Number(p.newValue) < 0
+                  ? 'Medal counts cannot be negative.'
+                  : null
+              }
+              onCellEditRejected={(e: CellEditRejectedEvent<Row>) =>
+                appendLog(`REJECTED ${e.data?.id}.${e.colId} = ${String(e.newValue)} — ${e.error}`)
+              }
+              tooltipInteraction={true}
+              tooltipShowDelay={300}
               onCellEditRequest={onCellEditRequest}
               theme={theme}
               onGridReady={(e) => {
