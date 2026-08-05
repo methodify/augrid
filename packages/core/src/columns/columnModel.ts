@@ -42,6 +42,7 @@ export class ColumnModel<TData = unknown> {
   private autoGroupSourceIds = new Map<string, string | null>();
   /** Identity of the current auto column set; rebuild only when it changes. */
   private autoGroupSignature = '';
+  private warnedAutoGroupRenderer = false;
   private selectionColumn: Column<TData> | null = null;
   private viewportWidth = 0;
   /** Cache of displayed split; invalidated on any column change. */
@@ -651,6 +652,16 @@ export class ColumnModel<TData = unknown> {
     this.autoGroupLevels.clear();
     this.autoGroupSourceIds.clear();
     const userDef = this.ctx.options.get('autoGroupColumnDef') ?? {};
+    if (userDef.cellRenderer && !this.warnedAutoGroupRenderer) {
+      // Accepted-and-ignored config is worse than a loud one: a consumer
+      // shipped believing this rendered (AUG report). Warn once.
+      this.warnedAutoGroupRenderer = true;
+      console.warn(
+        'AuGrid: autoGroupColumnDef.cellRenderer is not supported — the group cell ' +
+          '(chevron + key + count) is grid-owned. Use ' +
+          'autoGroupColumnDef.cellRendererParams.innerRenderer to render the key content.',
+      );
+    }
     this.autoGroupColumns = specs.map((spec) => {
       const def: ColDef<TData> = {
         headerName: 'Group',

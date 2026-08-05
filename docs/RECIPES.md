@@ -517,6 +517,33 @@ sparkline's point readout owns its column's hover unless the column sets
 `cellMouseOver`/`cellMouseOut` events always fire regardless — they're data,
 not a visual surface, so both approaches compose.
 
+## Decorating group cells
+
+The auto group column's cell (chevron + key + child count) is grid-owned;
+`autoGroupColumnDef.cellRenderer` is not supported (and warns). To render the
+**key content** — markers, badges, custom formatting — use `innerRenderer`
+(v0.10.0+):
+
+```ts
+autoGroupColumnDef: {
+  cellRendererParams: {
+    innerRenderer: (p) => {
+      // p.value = raw group key; p.valueFormatted = default display text
+      // (including footer "Total …"); return string | HTMLElement | null.
+      if (!outOfScope.has(String(p.value))) return null; // default text
+      const s = document.createElement('span');
+      s.textContent = `${p.valueFormatted} ⚑`;
+      s.title = 'Decided while in scope';
+      return s;
+    },
+  },
+},
+```
+
+Chevron, indentation, and the `(n)` count are untouched — the hook owns only
+the key span. Plain functions only (group cells rebuild as rows recycle, so a
+mounted component would remount constantly).
+
 ## Persisting user layout
 
 ```ts

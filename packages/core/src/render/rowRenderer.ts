@@ -9,6 +9,7 @@ import { RANGE_BOTTOM, RANGE_HANDLE, RANGE_IN, RANGE_LEFT, RANGE_RIGHT, RANGE_TO
 import { el } from '../utils/dom.js';
 import { toDisplayString } from '../utils/general.js';
 import type { CellRendererComp, CellRendererParams } from '../types/colDef.js';
+import type { IColumn } from '../types/column.js';
 
 const INDENT_PX = 20;
 
@@ -389,14 +390,41 @@ class CellCtrl<TData> {
     chevron.style.fontSize = '9px';
     wrap.appendChild(chevron);
     const key = el('span', 'au-group-key');
+    let keyText: string;
     if (node.footer) {
-      key.textContent = node.level === -1 ? 'Grand Total' : `Total ${node.key ?? ''}`;
+      keyText = node.level === -1 ? 'Grand Total' : `Total ${node.key ?? ''}`;
     } else if (node.group) {
-      key.textContent = node.key ?? '';
+      keyText = node.key ?? '';
     } else {
       // leaf in tree data shown under group column
-      key.textContent = node.key ?? toDisplayString(node.data ? this.ctx.values.getFormattedValue(node, this.groupLeafColumn()) : '');
+      keyText = node.key ?? toDisplayString(node.data ? this.ctx.values.getFormattedValue(node, this.groupLeafColumn()) : '');
     }
+    // innerRenderer (autoGroupColumnDef.cellRendererParams): user-rendered KEY
+    // content; chevron, indent, and child count stay grid-owned. Plain
+    // function only — group cells rebuild every render pass, so a component
+    // here would remount per frame. null/undefined output → default key text.
+    const inner = (
+      column.getColDef().cellRendererParams as
+        | { innerRenderer?: (p: CellRendererParams<TData>) => string | HTMLElement | null }
+        | undefined
+    )?.innerRenderer;
+    let rendered: string | HTMLElement | null = null;
+    if (typeof inner === 'function') {
+      rendered = inner({
+        api: this.ctx.api,
+        context: this.ctx.options.get('context'),
+        data: node.data,
+        node,
+        column: column as unknown as IColumn<TData>,
+        colDef: column.getColDef(),
+        value: node.key,
+        valueFormatted: keyText,
+        rowIndex: node.rowIndex,
+        refreshCell: () => this.ctx.scheduleRender(),
+      });
+    }
+    if (rendered instanceof HTMLElement) key.appendChild(rendered);
+    else key.textContent = rendered ?? keyText;
     wrap.appendChild(key);
     if (node.group && !node.footer && node.allChildrenCount > 0) {
       const count = el('span', 'au-group-count');

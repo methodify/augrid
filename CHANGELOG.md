@@ -3,6 +3,19 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.10.0 — 2026-08-05
+
+- **`autoGroupColumnDef.cellRendererParams.innerRenderer`**: render the group
+  cell's key content (markers, badges, custom formatting) while the grid
+  keeps chevron, indentation, and child count. `params.value` is the raw
+  group key, `params.valueFormatted` the default display text (including
+  footer "Total …"); return `string | HTMLElement | null` (null → default).
+  Works in all group display modes, footers, and tree-data leaves.
+- **`autoGroupColumnDef.cellRenderer` now warns** instead of being silently
+  ignored — a consumer shipped believing it rendered. Accepted-and-ignored
+  configuration is a bug in its own right; the warning points at
+  `innerRenderer`.
+
 ## 0.9.0 — 2026-08-04
 
 **Editing correctness + rich tooltips** — two consumer-reported edit bugs and

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMockContext } from '../test/mockContext.js';
 import { GridRenderer } from './renderer.js';
 import type { GridOptions } from '../types/gridOptions.js';
@@ -734,5 +734,98 @@ describe('GridRenderer — resize drag must not trigger sort (header click suppr
     document.dispatchEvent(mouse('mouseup', { clientX: 100 }));
     headerCell.dispatchEvent(mouse('click', { clientX: 100 }));
     expect(sorts).toEqual([]);
+  });
+});
+
+describe('GridRenderer — auto group column innerRenderer', () => {
+  interface GRow {
+    id: string;
+    country: string;
+    name: string;
+    value: number;
+  }
+  const gRows: GRow[] = [
+    { id: 'g0', country: 'USA', name: 'a', value: 1 },
+    { id: 'g1', country: 'USA', name: 'b', value: 2 },
+    { id: 'g2', country: 'FRA', name: 'c', value: 3 },
+  ];
+
+  function groupedSetup(options: object = {}) {
+    const { ctx } = createMockContext<GRow>({
+      columnDefs: [{ field: 'country', rowGroup: true }, { field: 'name' }, { field: 'value' }],
+      rowData: gRows,
+      getRowId: (p) => p.data.id,
+      ...options,
+    });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const renderer = new GridRenderer<GRow>(ctx, host);
+    ctx.renderer = renderer;
+    cleanups.push(() => {
+      renderer.destroy();
+      host.remove();
+    });
+    ctx.rowModel.start();
+    renderer.setViewportSizeForTesting(800, 300);
+    renderer.renderNow();
+    return { ctx, renderer, host };
+  }
+
+  it('string output replaces the key text; chevron and count stay grid-owned', () => {
+    const { host } = groupedSetup({
+      autoGroupColumnDef: {
+        cellRendererParams: {
+          innerRenderer: (p: { value: unknown; node: { allChildrenCount: number } }) =>
+            `${String(p.value)} ⚑`,
+        },
+      },
+    });
+    const groupCell = host.querySelector('.au-group-cell')!;
+    expect(groupCell.querySelector('.au-group-key')!.textContent).toBe('USA ⚑');
+    expect(groupCell.querySelector('[data-au-expand]')).toBeTruthy();
+    expect(groupCell.querySelector('.au-group-count')!.textContent).toBe('(2)');
+  });
+
+  it('HTMLElement output lands inside the key span; params carry key + display text', () => {
+    const seen: { value: unknown; valueFormatted: string }[] = [];
+    const { host } = groupedSetup({
+      autoGroupColumnDef: {
+        cellRendererParams: {
+          innerRenderer: (p: { value: unknown; valueFormatted: string }) => {
+            seen.push({ value: p.value, valueFormatted: p.valueFormatted });
+            const s = document.createElement('span');
+            s.className = 'scope-marker';
+            s.textContent = `${p.valueFormatted}!`;
+            return s;
+          },
+        },
+      },
+    });
+    expect(host.querySelector('.au-group-key .scope-marker')!.textContent).toBe('USA!');
+    expect(seen[0]).toEqual({ value: 'USA', valueFormatted: 'USA' });
+  });
+
+  it('null output falls back to the default key text', () => {
+    const { host } = groupedSetup({
+      autoGroupColumnDef: { cellRendererParams: { innerRenderer: () => null } },
+    });
+    expect(host.querySelector('.au-group-key')!.textContent).toBe('USA');
+  });
+
+  it('autoGroupColumnDef.cellRenderer warns once (accepted-and-ignored is the bug)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    groupedSetup({ autoGroupColumnDef: { cellRenderer: () => 'ignored' } });
+    const augridWarnings = warn.mock.calls.filter((c) => String(c[0]).includes('innerRenderer'));
+    expect(augridWarnings.length).toBe(1);
+    warn.mockRestore();
+  });
+
+  it('no warning without a cellRenderer', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    groupedSetup({
+      autoGroupColumnDef: { cellRendererParams: { innerRenderer: () => 'x' } },
+    });
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes('AuGrid'))).toEqual([]);
+    warn.mockRestore();
   });
 });

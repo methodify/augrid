@@ -165,6 +165,20 @@ export interface TooltipComp<TData = unknown> {
   destroy?(): void;
 }
 
+/**
+ * `autoGroupColumnDef.cellRendererParams` shape. `innerRenderer` renders the
+ * group cell's KEY content — chevron, indent, and child count stay
+ * grid-owned. `params.value` is the raw group key, `params.valueFormatted`
+ * the default display text (incl. footer "Total …"). Return
+ * `string | HTMLElement | null` — null falls back to the default text.
+ * Plain function only: group cells rebuild as rows recycle, so a mounted
+ * component here would remount constantly. (`autoGroupColumnDef.cellRenderer`
+ * itself is not supported and warns.)
+ */
+export interface AutoGroupCellRendererParams<TData = unknown> {
+  innerRenderer?: (params: CellRendererParams<TData>) => string | HTMLElement | null;
+}
+
 /* -------------------------------------------------------------- aggregation */
 
 export interface AggFuncParams<TData = unknown> {
