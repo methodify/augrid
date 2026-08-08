@@ -3,6 +3,19 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.10.1 — 2026-08-08
+
+- **Fix: headers washed out while `rowData` is empty.** The no-rows/loading
+  overlay was parented to the main pane, so its translucent film
+  (`rgba(255,255,255,.66)`, `z-index` above the header) covered the header
+  as well as the rows: header cells kept their DOM, geometry, and computed
+  styles but painted illegibly faint. Diagnosis credit to the reporter's
+  pixel-level measurements — `pointer-events:none` on the overlay meant even
+  `elementsFromPoint` said the header was topmost while it had zero ink. The
+  overlay now lives inside the body region and covers only the rows
+  viewport; headers, floating filters, and the paging bar stay fully
+  painted during empty and loading states.
+
 ## 0.10.0 — 2026-08-05
 
 - **`autoGroupColumnDef.cellRendererParams.innerRenderer`**: render the group

@@ -168,6 +168,19 @@ describe('GridRenderer — overlays', () => {
     expect(overlay.textContent).toContain('Loading');
   });
 
+  it('the overlay is contained in the body — it must never wash over the header', () => {
+    // Regression (consumer report): parented to .au-main, the no-rows
+    // overlay's translucent film covered the header too — headers kept DOM,
+    // geometry, and computed styles but painted zero ink while rowData was
+    // empty. Containment in .au-body is the fix; this pins it.
+    const { host } = setup({}, 0);
+    const overlay = host.querySelector('.au-overlay')!;
+    expect(overlay.parentElement!.classList.contains('au-body')).toBe(true);
+    expect(host.querySelector('.au-main > .au-overlay')).toBeNull();
+    // Header stays outside the overlay's containing block.
+    expect(host.querySelector('.au-body .au-header')).toBeNull();
+  });
+
   it('showOverlay("hidden") forces the no-rows overlay off', () => {
     const { renderer, host } = setup({}, 0);
     renderer.showOverlay('hidden');

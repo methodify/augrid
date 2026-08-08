@@ -199,14 +199,23 @@ export class GridRenderer<TData = unknown> {
     this.ePinnedBottom.append(this.ePinnedBottomLeft, this.ePinnedBottomCenterVp, this.ePinnedBottomRight);
     this.ePinnedBottom.style.display = 'none';
 
-    this.eOverlay = el('div', 'au-overlay');
+    // The overlay lives INSIDE the body (position:relative), not on au-main:
+    // its translucent wash must cover only the rows viewport. Parented to
+    // au-main it also covered the header — which kept its DOM, geometry, and
+    // computed styles, but painted under a 66% white film that made it
+    // unreadable while rowData was empty (consumer-measured: zero ink, yet
+    // elementsFromPoint still hit the header because the overlay is
+    // pointer-events:none).
+    // role=presentation: the body is a rowgroup; the overlay is not a row.
+    this.eOverlay = el('div', 'au-overlay', { role: 'presentation' });
     this.eOverlay.hidden = true;
+    this.eBody.appendChild(this.eOverlay);
     this.ePaging = el('div', 'au-paging');
     this.ePaging.style.display = 'none';
 
     // Main pane (vertical stack) beside the tool-panel side bar host.
     this.eMain = el('div', 'au-main');
-    this.eMain.append(this.eHeader, this.eFloating, this.ePinnedTop, this.eBody, this.ePinnedBottom, this.eOverlay, this.ePaging);
+    this.eMain.append(this.eHeader, this.eFloating, this.ePinnedTop, this.eBody, this.ePinnedBottom, this.ePaging);
     this.eSideBarHost = el('div', 'au-sidebar-host');
     this.eSideBarHost.style.display = 'none';
     r.append(this.eMain, this.eSideBarHost);
