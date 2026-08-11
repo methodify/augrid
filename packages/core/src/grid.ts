@@ -23,6 +23,7 @@ import { ContextMenuService } from './interaction/contextMenuService.js';
 import { ColumnMenuService } from './interaction/columnMenuService.js';
 import { SideBarService } from './features/sideBar/sideBarService.js';
 import { FindService } from './features/findService.js';
+import { RowDragService } from './interaction/rowDragService.js';
 import { SparklineInteraction } from './features/sparkline/sparklineInteraction.js';
 import { ColumnDragService } from './interaction/columnDragService.js';
 import { ColumnResizeService } from './interaction/columnResizeService.js';
@@ -92,6 +93,7 @@ export class Grid<TData = unknown> {
     ctx.tooltips = new TooltipService(ctx);
     ctx.sideBar = new SideBarService(ctx, ctx.renderer.getSideBarHost());
     ctx.find = new FindService(ctx);
+    ctx.rowDragService = new RowDragService(ctx) as unknown as typeof ctx.rowDragService;
     this.sparklineInteraction = new SparklineInteraction(ctx);
     ctx.frameworkAdapter = null;
 
@@ -253,6 +255,7 @@ export class Grid<TData = unknown> {
     });
     this.sparklineInteraction?.destroy();
     ctx.find?.destroy();
+    ctx.rowDragService?.destroy();
     ctx.sideBar?.destroy();
     ctx.tooltips?.destroy();
     ctx.columnResize?.destroy();

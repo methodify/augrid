@@ -544,6 +544,41 @@ Chevron, indentation, and the `(n)` count are untouched — the hook owns only
 the key span. Plain functions only (group cells rebuild as rows recycle, so a
 mounted component would remount constantly).
 
+## Master/detail, row dragging, cell spanning
+
+**Master/detail** (v0.11.0+): leaf rows expand to a full-width detail panel.
+
+```ts
+createGrid(el, {
+  masterDetail: true,
+  detailCellRenderer: (p) => buildLineItemsTable(p.data),  // or reactComponent(...)
+  detailRowHeight: (p) => 70 + p.data.lines.length * 24,   // number or per-row
+  isRowMaster: (data) => data.lines.length > 0,            // opt rows out
+});
+// Chevron renders in the first data column; rowGroupOpened fires on toggle.
+// Detail state is keyed by master row id — survives sort/filter/scrolling.
+// Detail DOM unmounts when scrolled out: render from data, don't hold DOM state.
+```
+
+**Row dragging**: `rowDrag: true` on a column renders a ⠿ handle.
+`rowDragManaged: true` makes the grid reorder its own row order on drop —
+client-side model with no active sort/group (the handle hides otherwise,
+because a managed drop couldn't be honest about where the row lands).
+Unmanaged: drive your own reorder from `rowDragEnter/Move/Leave/End`
+(payload: `{node, overIndex, overNode, y, vDirection}`). Escape cancels.
+
+**Cell spanning**:
+
+```ts
+{ field: 'section', colSpan: (p) => (isSectionRow(p.data) ? 3 : 1) }  // covers next cols
+{ field: 'region',  rowSpan: (p) => (p.data.first ? p.data.count : 1) } // extends down
+```
+
+`colSpan` clips at the pinned-region edge; covered cells render nothing.
+`rowSpan` is render-layer: the cell grows over the rows below (`.au-cell-span`
+paints an opaque background); sorting/filtering recompute spans, so design
+span groups that survive your grid's interactions.
+
 ## Persisting user layout
 
 ```ts

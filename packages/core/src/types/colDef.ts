@@ -290,6 +290,12 @@ export interface ColDef<TData = unknown> {
   tooltipComponent?: (new () => TooltipComp<TData>) | { readonly __frameworkComponent: unknown };
   autoHeight?: boolean;
   wrapText?: boolean;
+  /** Render a row-drag handle in this column's cells. */
+  rowDrag?: boolean;
+  /** Cell spans this many columns (clipped to the pinned region). Default 1. */
+  colSpan?: (params: CellClassParams<TData>) => number;
+  /** Cell extends over this many rows (render-layer; covers the cells below). */
+  rowSpan?: (params: CellClassParams<TData>) => number;
 
   headerComponent?: (new () => HeaderComp<TData>) | { readonly __frameworkComponent: unknown };
   headerClass?: string | string[];

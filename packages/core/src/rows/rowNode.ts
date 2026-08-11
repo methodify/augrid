@@ -13,6 +13,10 @@ export class RowNode<TData = unknown> implements IRowNode<TData> {
   rowIndex = -1;
   level = 0;
   group = false;
+  /** Master row (masterDetail): expandable to a detail panel. */
+  master = false;
+  /** Synthetic detail row rendered full-width under its master. */
+  detail = false;
   key: string | null = null;
   field: string | null = null;
   parent: RowNode<TData> | null = null;
@@ -65,7 +69,7 @@ export class RowNode<TData = unknown> implements IRowNode<TData> {
   }
 
   setExpanded(expanded: boolean): void {
-    if (this.expanded === expanded || !this.group) return;
+    if (this.expanded === expanded || (!this.group && !this.master)) return;
     this.expanded = expanded;
     this.ctx.rowModel.onGroupExpandedChanged(this);
     this.ctx.events.dispatch({
@@ -113,6 +117,7 @@ export class RowNode<TData = unknown> implements IRowNode<TData> {
  */
 export function isNodeExpandable<TData>(ctx: GridContext<TData>, node: RowNode<TData>): boolean {
   if (ctx.rowModel.isRowExpandable) return ctx.rowModel.isRowExpandable(node);
+  if (node.master) return true; // masterDetail: leaf expands to its detail panel
   if (!node.group || node.footer || (node.childrenAfterFilter?.length ?? 0) === 0) return false;
   // Active pivot never displays leaf rows, so a group whose children are all
   // leaves has nothing to reveal — a chevron there is a dead control that

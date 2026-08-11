@@ -353,6 +353,8 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
     const out: RowNode<TData>[] = [];
     if (this.root) {
       const pivotActive = this.ctx.columnModel.isPivotMode() && this.ctx.columnModel.getPivotColumns().length > 0;
+      const masterDetail = this.ctx.options.is('masterDetail');
+      const isRowMaster = this.ctx.options.get('isRowMaster');
       const groupRowsMode = this.ctx.options.get('groupDisplayType') === 'groupRows';
       const groupTotal = this.ctx.options.get('groupTotalRow');
       void groupRowsMode;
@@ -375,7 +377,10 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
               if (groupTotal === 'bottom') out.push(this.getFooterNode(ch));
             }
           } else if (!pivotActive) {
+            if (masterDetail) ch.master = isRowMaster ? isRowMaster(ch.data) !== false : true;
             out.push(ch);
+            // Detail panel rides the full-width machinery as a synthetic node.
+            if (ch.master && ch.expanded) out.push(this.getDetailNode(ch));
           }
         }
       };
@@ -390,6 +395,47 @@ export class ClientSideRowModel<TData = unknown> implements IRowModel<TData> {
 
   private hasGroupChildren(node: RowNode<TData>): boolean {
     return (node.childrenAfterFilter ?? []).some((c) => c.group);
+  }
+
+  /**
+   * Managed row drag: move a leaf to a display slot (flat, unsorted,
+   * ungrouped — the service guarantees the preconditions). Reorders the
+   * source leaf array so the order is durable across refreshes.
+   */
+  moveRowToIndex(node: RowNode<TData>, slot: number): void {
+    const from = this.allLeafNodes.indexOf(node);
+    if (from < 0) return;
+    // Display slots count detail rows too; map to leaf positions by walking
+    // displayed rows (flat view: displayed leaves are allLeafNodes order).
+    let to = 0;
+    const displayed = this.displayedAll;
+    for (let i = 0; i < Math.min(slot, displayed.length); i++) {
+      if (!displayed[i]!.detail) to++;
+    }
+    this.allLeafNodes.splice(from, 1);
+    if (to > from) to--;
+    this.allLeafNodes.splice(Math.max(0, Math.min(to, this.allLeafNodes.length)), 0, node);
+    for (let i = 0; i < this.allLeafNodes.length; i++) this.allLeafNodes[i]!.__sourceIndex = i;
+    this.refreshModel('group');
+  }
+
+  /** Synthetic detail rows, cached per master id (expansion survives sort/filter). */
+  private detailNodes = new Map<string, RowNode<TData>>();
+  private getDetailNode(master: RowNode<TData>): RowNode<TData> {
+    let d = this.detailNodes.get(master.id);
+    if (!d) {
+      d = new RowNode<TData>(this.ctx, `detail-${master.id}`);
+      d.detail = true;
+      this.detailNodes.set(master.id, d);
+    }
+    d.data = master.data;
+    d.parent = master;
+    d.level = master.level + 1;
+    const opt = this.ctx.options.get('detailRowHeight');
+    d.rowHeight =
+      (typeof opt === 'function' ? opt({ node: master, data: master.data }) : opt) ?? 300;
+    this.hasCustomHeights = true; // detail heights force the variable-height path
+    return d;
   }
 
   private hasAnyAgg(): boolean {

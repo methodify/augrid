@@ -203,6 +203,24 @@ export interface GridOptions<TData = unknown> extends GridOptionEventCallbacks<T
   getRowStyle?: (params: { data: TData | undefined; node: IRowNode<TData>; rowIndex: number }) => Partial<CSSStyleDeclaration> | undefined;
   isFullWidthRow?: (params: { rowNode: IRowNode<TData> }) => boolean;
   fullWidthCellRenderer?: CellRendererDef<TData>;
+
+  /* master/detail */
+  /** Leaf rows expand to a full-width detail panel under them. */
+  masterDetail?: boolean;
+  /** Renders the detail panel's content (fn/class or framework component). */
+  detailCellRenderer?: CellRendererDef<TData>;
+  /** Arbitrary params surfaced to the detail renderer as `params.detailParams`. */
+  detailCellRendererParams?: unknown;
+  /** Detail panel height in px, fixed or per master row (default 300). */
+  detailRowHeight?: number | ((params: { node: IRowNode<TData>; data: TData | undefined }) => number);
+  /** Opt individual rows out of being masters (no chevron, no detail). */
+  isRowMaster?: (data: TData | undefined) => boolean;
+
+  /* row dragging */
+  /** Grid reorders rowData itself on drop (client-side, unsorted, ungrouped). */
+  rowDragManaged?: boolean;
+  /** Ghost label while dragging (default "1 row"). */
+  rowDragText?: (node: IRowNode<TData>) => string;
   /** Show built-in loading overlay. */
   loading?: boolean;
   overlayNoRowsTemplate?: string;

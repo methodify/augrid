@@ -280,6 +280,13 @@ export interface GridContext<TData = unknown> {
   undoRedo: IUndoRedoService<TData> | null;
   pagination: IPaginationService<TData> | null;
   columnDrag: IColumnDragService | null;
+  /** Row drag-to-reorder (optional service; boot wires it). */
+  rowDragService?: {
+    beginDrag(node: unknown, e: MouseEvent): void;
+    shouldSwallowClick(): boolean;
+    canManageReorder(): boolean;
+    destroy(): void;
+  } | null;
   columnResize: IColumnResizeService | null;
   tooltips: ITooltipService | null;
   frameworkAdapter: FrameworkAdapter | null;

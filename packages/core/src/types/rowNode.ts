@@ -15,6 +15,10 @@ export interface IRowNode<TData = unknown> {
   readonly level: number;
   /** True if this node is a group (rowGroup, tree parent, or pivot group). */
   readonly group: boolean;
+  /** Master row (masterDetail). */
+  master: boolean;
+  /** Synthetic full-width detail row. */
+  detail: boolean;
   /** Grouping key for group nodes (the shared column value as string). */
   readonly key: string | null;
   /** ColId this group was grouped by (undefined for tree data groups). */

@@ -9,6 +9,7 @@ import { TreePivot } from './pages/TreePivot';
 import { PivotPlan } from './pages/PivotPlan';
 import { ServerSide } from './pages/ServerSide';
 import { Sparklines } from './pages/Sparklines';
+import { MasterDetail } from './pages/MasterDetail';
 import { Benchmark } from './pages/Benchmark';
 
 export interface PageProps {
@@ -24,6 +25,7 @@ const PAGES: { hash: string; label: string; Comp: (props: PageProps) => ReactNod
   { hash: 'pivotplan', label: 'Pivot Plan', Comp: PivotPlan },
   { hash: 'serverside', label: 'Server-Side', Comp: ServerSide },
   { hash: 'sparklines', label: 'Sparklines', Comp: Sparklines },
+  { hash: 'masterdetail', label: 'Master/Detail', Comp: MasterDetail },
   { hash: 'benchmark', label: 'Benchmark', Comp: Benchmark },
 ];
 

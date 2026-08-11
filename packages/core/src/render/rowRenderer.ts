@@ -27,6 +27,10 @@ class CellCtrl<TData> {
   private lastRangeFlags = -1;
   private lastFindFlags = -1;
   private lastSelected: boolean | undefined = undefined;
+  private lastNodeExpanded: boolean | null = null;
+  private masterChevron: HTMLElement | null = null;
+  private rowDragHandle: HTMLElement | null = null;
+  private lastSpanHeight: number | null = null;
   private lastColIndex = -1;
   private lastLeft = -1;
   private lastWidth = -1;
@@ -45,15 +49,28 @@ class CellCtrl<TData> {
     this.elCell = el('div', 'au-cell', { role: 'gridcell', 'data-au-col': colId, tabindex: '-1' });
   }
 
-  update(node: RowNode<TData>, column: Column<TData>, displayIndex: number, colIndex: number): void {
+  update(
+    node: RowNode<TData>,
+    column: Column<TData>,
+    displayIndex: number,
+    colIndex: number,
+    spanWidth: number | null = null,
+    spanHeight: number | null = null,
+  ): void {
     const e = this.elCell;
     if (column.left !== this.lastLeft) {
       e.style.left = `${column.left}px`;
       this.lastLeft = column.left;
     }
-    if (column.actualWidth !== this.lastWidth) {
-      e.style.width = `${column.actualWidth}px`;
-      this.lastWidth = column.actualWidth;
+    const width = spanWidth ?? column.actualWidth;
+    if (width !== this.lastWidth) {
+      e.style.width = `${width}px`;
+      this.lastWidth = width;
+    }
+    if (spanHeight !== this.lastSpanHeight) {
+      e.style.height = spanHeight != null ? `${spanHeight}px` : '';
+      this.lastSpanHeight = spanHeight;
+      this.dirty = true; // className must pick up/drop au-cell-span below
     }
     if (colIndex !== this.lastColIndex) {
       e.setAttribute('aria-colindex', String(colIndex + 1));
@@ -80,13 +97,17 @@ class CellCtrl<TData> {
       focused === this.lastFocused &&
       rangeFlags === this.lastRangeFlags &&
       findFlags === this.lastFindFlags &&
-      selected === this.lastSelected
+      selected === this.lastSelected &&
+      // Expansion toggles repaint chevrons (group cells AND master rows)
+      // even though __version does not bump.
+      node.expanded === this.lastNodeExpanded
     ) {
       return;
     }
     this.dirty = false;
     this.lastNode = node;
     this.lastVersion = node.__version;
+    this.lastNodeExpanded = node.expanded;
     this.lastEditing = editing;
     this.lastFocused = focused;
     this.lastRangeFlags = rangeFlags;
@@ -95,6 +116,7 @@ class CellCtrl<TData> {
 
     // classes
     let cls = 'au-cell';
+    if (this.lastSpanHeight != null) cls += ' au-cell-span';
     if (column.cellDataType === 'number' && !column.isAutoGroupCol) cls += ' au-cell-number';
     if (column.getColDef().wrapText) cls += ' au-cell-wrap';
     if (focused && !ctx.options.is('suppressCellFocus')) cls += ' au-cell-focus';
@@ -121,6 +143,8 @@ class CellCtrl<TData> {
     }
 
     this.renderContent(node, column, displayIndex);
+    this.syncMasterChevron(node);
+    this.syncRowDragHandle(node, column);
 
     if (rangeFlags & RANGE_HANDLE) {
       if (!this.handleEl || this.handleEl.parentElement !== e) {
@@ -358,6 +382,62 @@ class CellCtrl<TData> {
     this.setTextContent(formatted);
   }
 
+  /**
+   * Master rows carry the expand chevron ahead of the first data column's
+   * content. Runs AFTER renderContent (which may clearContent), re-inserting
+   * the tracked element; inert on every other cell.
+   */
+  private syncMasterChevron(node: RowNode<TData>): void {
+    const wanted =
+      node.master === true &&
+      node.rowPinned == null &&
+      this.colId === (this.ctx.renderer.getMasterChevronColId?.() ?? null);
+    if (!wanted) {
+      if (this.masterChevron) {
+        this.masterChevron.remove();
+        this.masterChevron = null;
+      }
+      return;
+    }
+    if (!this.masterChevron) {
+      const c = el('span', 'au-group-expand au-master-expand');
+      c.setAttribute('data-au-expand', '1');
+      c.textContent = '▶';
+      c.style.fontSize = '9px';
+      this.masterChevron = c;
+    }
+    this.masterChevron.className =
+      'au-group-expand au-master-expand' + (node.expanded ? ' au-expanded' : '');
+    if (this.elCell.firstChild !== this.masterChevron) {
+      this.elCell.insertBefore(this.masterChevron, this.elCell.firstChild);
+    }
+  }
+
+  /** Row-drag handle for colDef.rowDrag cells (hidden when managed reorder is impossible). */
+  private syncRowDragHandle(node: RowNode<TData>, column: Column<TData>): void {
+    const svc = this.ctx.rowDragService;
+    const wanted =
+      column.getColDef().rowDrag === true &&
+      !node.group && !node.detail && node.rowPinned == null && !!svc &&
+      (!this.ctx.options.is('rowDragManaged') || svc.canManageReorder());
+    if (!wanted) {
+      if (this.rowDragHandle) {
+        this.rowDragHandle.remove();
+        this.rowDragHandle = null;
+      }
+      return;
+    }
+    if (!this.rowDragHandle) {
+      const h = el('span', 'au-row-drag', { 'data-au-row-drag': '1' });
+      h.textContent = '⠿';
+      this.rowDragHandle = h;
+    }
+    const anchor = this.masterChevron?.nextSibling ?? this.elCell.firstChild;
+    if (this.rowDragHandle.parentElement !== this.elCell) {
+      this.elCell.insertBefore(this.rowDragHandle, anchor);
+    }
+  }
+
   private setTextContent(text: string): void {
     if (this.lastContentKey !== '__text' || !this.valueSpan) {
       this.clearContent();
@@ -538,14 +618,59 @@ class RegionRow<TData> {
         this.cells.delete(colId);
       }
     }
-    for (const col of columns) {
+    let skip = 0;
+    for (let ci = 0; ci < columns.length; ci++) {
+      const col = columns[ci]!;
       let cell = this.cells.get(col.colId);
+      if (skip > 0) {
+        // Covered by a preceding colSpan cell: render nothing here.
+        skip--;
+        if (cell) {
+          cell.destroy();
+          this.cells.delete(col.colId);
+        }
+        continue;
+      }
       if (!cell) {
         cell = new CellCtrl(this.ctx, col.colId);
         this.cells.set(col.colId, cell);
         this.elRow.appendChild(cell.elCell);
       }
-      cell.update(node, col, displayIndex, allColIndex.get(col.colId) ?? 0);
+      // Cell spanning (render layer). colSpan clips at the region edge;
+      // rowSpan sums following display rows' heights and covers their cells.
+      const def = col.getColDef();
+      let spanWidth: number | null = null;
+      let spanHeight: number | null = null;
+      if (def.colSpan || def.rowSpan) {
+        const params = {
+          api: this.ctx.api,
+          context: this.ctx.options.get('context'),
+          data: node.data,
+          node,
+          column: col as unknown as import('../types/column.js').IColumn<TData>,
+          colDef: def,
+          value: this.ctx.values.getValue(node, col),
+          rowIndex: displayIndex,
+        };
+        const cols = Math.max(1, Math.floor(def.colSpan?.(params) ?? 1));
+        if (cols > 1) {
+          spanWidth = col.actualWidth;
+          for (let k = 1; k < cols && ci + k < columns.length; k++) {
+            spanWidth += columns[ci + k]!.actualWidth;
+            skip++;
+          }
+        }
+        const rows = Math.max(1, Math.floor(def.rowSpan?.(params) ?? 1));
+        if (rows > 1 && node.rowPinned == null) {
+          spanHeight = node.rowHeight;
+          for (let k = 1; k < rows; k++) {
+            const below = this.ctx.rowModel.getRow(displayIndex + k);
+            if (!below) break;
+            spanHeight += below.rowHeight;
+          }
+        }
+      }
+      cell.update(node, col, displayIndex, allColIndex.get(col.colId) ?? 0, spanWidth, spanHeight);
     }
   }
 
@@ -1021,6 +1146,7 @@ export class FullWidthBand<TData> {
     const selected = node.isSelected();
     let cls = 'au-row au-fullwidth-row';
     cls += displayIndex % 2 === 1 ? ' au-row-odd' : ' au-row-even';
+    if (node.detail) cls += ' au-detail-row';
     if (node.group && !node.footer) cls += ' au-row-group';
     if (node.footer) cls += ' au-row-footer';
     if (selected === true) cls += ' au-row-selected';
@@ -1066,12 +1192,14 @@ export class FullWidthBand<TData> {
       return;
     }
 
-    // isFullWidthRow leaf: user fullWidthCellRenderer
+    // Detail rows and isFullWidthRow leaves: user-rendered full-width content.
     const key = `fw|${node.__version}`;
     if (row.contentKey === key) return;
     row.contentKey = key;
     this.clearRowContent(row);
-    const renderer = this.ctx.options.get('fullWidthCellRenderer');
+    const renderer = node.detail
+      ? this.ctx.options.get('detailCellRenderer')
+      : this.ctx.options.get('fullWidthCellRenderer');
     const params = {
       api: this.ctx.api,
       context: this.ctx.options.get('context'),
@@ -1083,6 +1211,8 @@ export class FullWidthBand<TData> {
       valueFormatted: '',
       rowIndex: displayIndex,
       refreshCell: () => this.ctx.scheduleRender(),
+      // Detail renderers additionally receive detailCellRendererParams.
+      ...(node.detail ? { detailParams: this.ctx.options.get('detailCellRendererParams') } : {}),
     } as unknown as CellRendererParams<TData>;
     if (!renderer) {
       row.elCell.textContent = '';

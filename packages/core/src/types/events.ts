@@ -190,6 +190,18 @@ export interface FindChangedEvent<TData = unknown> extends AuEvent<TData> {
   activeIndex: number;
 }
 
+/** Row drag lifecycle (managed or consumer-driven reordering). */
+export interface RowDragEvent<TData = unknown> extends AuEvent<TData> {
+  node: IRowNode<TData>;
+  data: TData | undefined;
+  /** Display index currently dragged over (drop slot, clamped). */
+  overIndex: number;
+  overNode?: IRowNode<TData>;
+  y: number;
+  vDirection: 'up' | 'down' | null;
+  event?: MouseEvent;
+}
+
 /** All grid events, keyed by name. The single source of truth. */
 export interface GridEventMap<TData = unknown> {
   gridReady: AuEvent<TData>;
@@ -210,6 +222,10 @@ export interface GridEventMap<TData = unknown> {
   cellFocused: CellFocusedEvent<TData>;
   rowClicked: RowEvent<TData>;
   rowDoubleClicked: RowEvent<TData>;
+  rowDragEnter: RowDragEvent<TData>;
+  rowDragMove: RowDragEvent<TData>;
+  rowDragLeave: RowDragEvent<TData>;
+  rowDragEnd: RowDragEvent<TData>;
 
   rowSelected: RowSelectedEvent<TData>;
   selectionChanged: SelectionChangedEvent<TData>;

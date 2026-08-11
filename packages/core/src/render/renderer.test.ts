@@ -931,3 +931,153 @@ describe('GridRenderer — pivot mode expandability', () => {
     expect(chevrons.some((c) => !c.classList.contains('au-hidden'))).toBe(true);
   });
 });
+
+describe('GridRenderer — master/detail', () => {
+  function mdSetup(options: object = {}) {
+    const { ctx } = createMockContext<Row>({
+      columnDefs: [{ field: 'name' }, { field: 'value' }],
+      rowData: makeRows(6),
+      getRowId: (p) => p.data.id,
+      masterDetail: true,
+      detailCellRenderer: (p: { data?: Row }) => {
+        const d = document.createElement('div');
+        d.className = 'my-detail';
+        d.textContent = `detail for ${p.data?.name}`;
+        return d;
+      },
+      detailRowHeight: 120,
+      ...options,
+    });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const renderer = new GridRenderer<Row>(ctx, host);
+    ctx.renderer = renderer;
+    cleanups.push(() => {
+      renderer.destroy();
+      host.remove();
+    });
+    ctx.rowModel.start();
+    renderer.setViewportSizeForTesting(800, 400);
+    renderer.renderNow();
+    return { ctx, renderer, host };
+  }
+
+  it('master rows carry a chevron in the first data column; expanding shows the detail panel', () => {
+    const { ctx, renderer, host } = mdSetup();
+    const row0 = host.querySelector('.au-center-spacer [data-au-row-id="r0"]')!;
+    const chevron = row0.querySelector('[data-au-col="name"] [data-au-expand]') as HTMLElement;
+    expect(chevron).toBeTruthy();
+    expect(row0.querySelector('[data-au-col="value"] [data-au-expand]')).toBeNull();
+
+    chevron.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    renderer.renderNow();
+    expect(ctx.rowModel.getRowCount()).toBe(7);
+    const detail = host.querySelector('.au-fullwidth-container .au-detail-row') as HTMLElement;
+    expect(detail).toBeTruthy();
+    expect(detail.querySelector('.my-detail')!.textContent).toBe('detail for name0');
+    expect(detail.style.height).toBe('120px');
+    // chevron rotated + row aria-expanded
+    expect(row0.querySelector('.au-master-expand')!.classList.contains('au-expanded')).toBe(true);
+    expect(row0.getAttribute('aria-expanded')).toBe('true');
+    // detail row positioned directly under its master
+    const master = host.querySelector('.au-center-spacer [data-au-row-id="r0"]') as HTMLElement;
+    expect(master.style.height).toBe('32px');
+    expect(detail.style.transform).toBe('translateY(32px)');
+  });
+
+  it('collapsing removes the detail row and restores heights', () => {
+    const { ctx, renderer, host } = mdSetup();
+    const chevron = () =>
+      host.querySelector('.au-center-spacer [data-au-row-id="r1"] [data-au-col="name"] [data-au-expand]') as HTMLElement;
+    chevron().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    renderer.renderNow();
+    expect(ctx.rowModel.getRowCount()).toBe(7);
+    chevron().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    renderer.renderNow();
+    expect(ctx.rowModel.getRowCount()).toBe(6);
+    expect(host.querySelector('.au-detail-row')).toBeNull();
+  });
+
+  it('isRowMaster opts rows out: no chevron, setExpanded inert', () => {
+    const { ctx, renderer, host } = mdSetup({
+      isRowMaster: (d?: Row) => d?.id !== 'r2',
+    });
+    expect(host.querySelector('.au-center-spacer [data-au-row-id="r2"] [data-au-expand]')).toBeNull();
+    expect(
+      host.querySelector('.au-center-spacer [data-au-row-id="r3"] [data-au-col="name"] [data-au-expand]'),
+    ).toBeTruthy();
+    const r2 = ctx.rowModel.getRowNode('r2')!;
+    r2.setExpanded(true);
+    renderer.renderNow();
+    expect(ctx.rowModel.getRowCount()).toBe(6);
+  });
+
+  it('detail expansion survives a sort (keyed by master id)', () => {
+    const { ctx, renderer, host } = mdSetup();
+    (host.querySelector('.au-center-spacer [data-au-row-id="r0"] [data-au-expand]') as HTMLElement)
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    renderer.renderNow();
+    ctx.api.applyColumnState({ state: [{ colId: 'value', sort: 'desc' }] });
+    renderer.renderNow();
+    expect(ctx.rowModel.getRowCount()).toBe(7); // detail still present
+    const detail = [...document.querySelectorAll('.au-detail-row .my-detail')];
+    expect(detail.some((d) => d.textContent === 'detail for name0')).toBe(true);
+  });
+});
+
+describe('GridRenderer — cell spanning', () => {
+  function spanSetup(extraDefs: object) {
+    const { ctx } = createMockContext<Row>({
+      columnDefs: [
+        { field: 'name', ...(extraDefs as { name?: object }).name },
+        { field: 'value', ...(extraDefs as { value?: object }).value },
+        { colId: 'x', valueGetter: () => 'x' },
+      ],
+      rowData: makeRows(6),
+      getRowId: (p) => p.data.id,
+    });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const renderer = new GridRenderer<Row>(ctx, host);
+    ctx.renderer = renderer;
+    cleanups.push(() => {
+      renderer.destroy();
+      host.remove();
+    });
+    ctx.rowModel.start();
+    renderer.setViewportSizeForTesting(800, 300);
+    renderer.renderNow();
+    return { ctx, renderer, host };
+  }
+
+  it('colSpan widens the cell over covered columns, which render nothing', () => {
+    const { host } = spanSetup({
+      name: { colSpan: (p: { rowIndex: number }) => (p.rowIndex === 0 ? 2 : 1) },
+    });
+    const row0 = host.querySelector('.au-center-spacer [data-au-row-id="r0"]')!;
+    const nameCell = row0.querySelector('[data-au-col="name"]') as HTMLElement;
+    expect(nameCell.style.width).toBe('400px'); // 200 + 200
+    expect(row0.querySelector('[data-au-col="value"]')).toBeNull(); // covered
+    expect(row0.querySelector('[data-au-col="x"]')).toBeTruthy(); // beyond the span
+    // unspanned row unaffected
+    const row1 = host.querySelector('.au-center-spacer [data-au-row-id="r1"]')!;
+    expect((row1.querySelector('[data-au-col="name"]') as HTMLElement).style.width).toBe('200px');
+    expect(row1.querySelector('[data-au-col="value"]')).toBeTruthy();
+  });
+
+  it('rowSpan makes the cell taller with the covering class', () => {
+    const { host } = spanSetup({
+      value: { rowSpan: (p: { rowIndex: number }) => (p.rowIndex === 1 ? 3 : 1) },
+    });
+    const cell = host.querySelector(
+      '.au-center-spacer [data-au-row-id="r1"] [data-au-col="value"]',
+    ) as HTMLElement;
+    expect(cell.style.height).toBe(`${32 * 3}px`);
+    expect(cell.classList.contains('au-cell-span')).toBe(true);
+    const plain = host.querySelector(
+      '.au-center-spacer [data-au-row-id="r0"] [data-au-col="value"]',
+    ) as HTMLElement;
+    expect(plain.style.height).toBe('');
+    expect(plain.classList.contains('au-cell-span')).toBe(false);
+  });
+});

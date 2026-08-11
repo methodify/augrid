@@ -321,6 +321,25 @@ export const BASE_CSS = `
 }
 .au-group-expand.au-expanded { transform: rotate(90deg); }
 .au-group-expand.au-hidden { visibility: hidden; cursor: default; }
+.au-master-expand { margin-right: 4px; cursor: pointer; }
+.au-cell-span {
+  background: var(--au-background-color, #fff);
+  z-index: 2;
+  border-bottom: 1px solid var(--au-border-color, #e3e6eb);
+  align-items: flex-start; padding-top: 6px;
+}
+.au-row-drag { flex: none; cursor: grab; margin-right: 6px; opacity: .55; user-select: none; }
+.au-row-drag:hover { opacity: 1; }
+.au-row-drop-indicator {
+  position: absolute; left: 0; right: 0; height: 0;
+  border-top: 2px solid var(--au-accent-color, #2563eb);
+  z-index: 30; pointer-events: none;
+}
+.au-fullwidth-row.au-detail-row {
+  background: var(--au-detail-background-color, var(--au-header-background-color, #f7f8fa));
+  border-bottom: 1px solid var(--au-border-color, #e3e6eb);
+  overflow: auto;
+}
 .au-group-key { overflow: hidden; text-overflow: ellipsis; }
 .au-group-count { opacity: .55; font-weight: 400; }
 

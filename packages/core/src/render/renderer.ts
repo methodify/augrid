@@ -75,6 +75,11 @@ export class GridRenderer<TData = unknown> {
   private headerDirty = true;
   private firstRenderDone = false;
   private hoveredRowId: string | null = null;
+  /** First data column's id when masterDetail is on (chevron mounts there). */
+  private masterChevronColId: string | null = null;
+  getMasterChevronColId(): string | null {
+    return this.masterChevronColId;
+  }
   /** Cell under the pointer, for enter/exit event pairing across recycled rows. */
   private hoveredCell: { key: string; payload: ReturnType<GridRenderer<TData>['cellEventPayload']> } | null = null;
   private scrollEndTimer: ReturnType<typeof setTimeout> | null = null;
@@ -376,6 +381,11 @@ export class GridRenderer<TData = unknown> {
     const hit = this.cellFromEvent(e);
     if (!hit || !hit.column) return;
     if (e.button !== 0) return;
+    if ((target as HTMLElement).hasAttribute?.('data-au-row-drag')) {
+      this.ctx.rowDragService?.beginDrag(hit.node, e);
+      e.preventDefault();
+      return;
+    }
     // Focus the cell (unless clicking checkbox/expand controls)
     const isControl =
       (target as HTMLElement).hasAttribute?.('data-au-row-checkbox') ||
@@ -402,8 +412,9 @@ export class GridRenderer<TData = unknown> {
     // though one hit suffices, so neither goes stale.
     const swallowResize = this.ctx.columnResize?.shouldSwallowClick() ?? false;
     const swallowDrag = this.ctx.columnDrag?.shouldSwallowClick() ?? false;
+    const swallowRowDrag = this.ctx.rowDragService?.shouldSwallowClick() ?? false;
     if (closestWithAttr(target, 'data-au-resize', this.eRoot)) return;
-    if (swallowResize || swallowDrag) return;
+    if (swallowResize || swallowDrag || swallowRowDrag) return;
     // header interactions — the menu button sits inside sortable cells, so it
     // must win over the sort handler.
     const menuBtn = closestWithAttr(target, 'data-au-col-menu', this.eRoot);
@@ -645,13 +656,18 @@ export class GridRenderer<TData = unknown> {
     // bands skip them.
     const groupRowsMode = ctx.options.get('groupDisplayType') === 'groupRows';
     const isFullWidthFn = ctx.options.get('isFullWidthRow');
+    const masterDetailOn = ctx.options.is('masterDetail');
+    // Master rows show their expand chevron in the first data column.
+    this.masterChevronColId = masterDetailOn
+      ? (displayed.all.find((c) => c.colId !== 'au-selection-col')?.colId ?? null)
+      : null;
     let regionNodes = visibleNodes;
     let fwNodes: RowNode<TData>[] | null = null;
-    if (groupRowsMode || isFullWidthFn) {
+    if (groupRowsMode || isFullWidthFn || masterDetailOn) {
       regionNodes = [];
       fwNodes = [];
       for (const n of visibleNodes) {
-        if ((groupRowsMode && n.group && !n.footer) || (isFullWidthFn && isFullWidthFn({ rowNode: n }) === true)) {
+        if (n.detail || (groupRowsMode && n.group && !n.footer) || (isFullWidthFn && isFullWidthFn({ rowNode: n }) === true)) {
           fwNodes.push(n);
         } else {
           regionNodes.push(n);

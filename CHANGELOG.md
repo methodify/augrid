@@ -3,6 +3,28 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.11.0 — 2026-08-10
+
+**Master/detail, row dragging, cell spanning** — the remaining renderer/
+interaction surface.
+
+- **Master/detail**: `masterDetail: true` + `detailCellRenderer` (+`Params`),
+  `detailRowHeight` (fixed or per-row), `isRowMaster`. Detail panels ride the
+  full-width row machinery; expansion is keyed by master row id and survives
+  sort/filter; `rowGroupOpened` fires on toggle; chevron renders in the
+  first data column.
+- **Row dragging**: `rowDrag: true` on a column renders a drag handle;
+  `rowDragManaged: true` reorders the client-side row order on drop (only
+  with no active sort/group — the handle hides otherwise). Events
+  `rowDragEnter/Move/Leave/End`; Escape cancels; drop indicator line;
+  post-drag click suppression from day one.
+- **Cell spanning**: `colDef.colSpan` / `colDef.rowSpan` callbacks
+  (AG-compatible). colSpan widens over covered cells (which render nothing),
+  clipped at region edges; rowSpan grows the cell over the rows below at the
+  render layer (`.au-cell-span`).
+- Fix: expansion state changes (chevron rotation) now repaint recycled cells
+  even when row data hasn't changed.
+
 ## 0.10.2 — 2026-08-10
 
 - **Fix: dead expand chevrons at the deepest group level in pivot mode.**
