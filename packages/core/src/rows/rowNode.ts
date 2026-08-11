@@ -113,5 +113,18 @@ export class RowNode<TData = unknown> implements IRowNode<TData> {
  */
 export function isNodeExpandable<TData>(ctx: GridContext<TData>, node: RowNode<TData>): boolean {
   if (ctx.rowModel.isRowExpandable) return ctx.rowModel.isRowExpandable(node);
-  return node.group && !node.footer && (node.childrenAfterFilter?.length ?? 0) > 0;
+  if (!node.group || node.footer || (node.childrenAfterFilter?.length ?? 0) === 0) return false;
+  // Active pivot never displays leaf rows, so a group whose children are all
+  // leaves has nothing to reveal — a chevron there is a dead control that
+  // reads as "expand is broken". Condition mirrors the flatten stage's
+  // pivotActive exactly (pivot MODE alone, without pivot columns, still
+  // shows leaves).
+  if (
+    ctx.columnModel.isPivotMode() &&
+    ctx.columnModel.getPivotColumns().length > 0 &&
+    !node.childrenAfterFilter!.some((c) => c.group)
+  ) {
+    return false;
+  }
+  return true;
 }

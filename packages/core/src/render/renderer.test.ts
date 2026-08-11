@@ -842,3 +842,92 @@ describe('GridRenderer — auto group column innerRenderer', () => {
     warn.mockRestore();
   });
 });
+
+describe('GridRenderer — pivot mode expandability', () => {
+  interface PRow {
+    id: string;
+    country: string;
+    year: number;
+    gold: number;
+  }
+  const pRows: PRow[] = [
+    { id: 'p0', country: 'USA', year: 2020, gold: 1 },
+    { id: 'p1', country: 'USA', year: 2022, gold: 2 },
+    { id: 'p2', country: 'FRA', year: 2020, gold: 3 },
+  ];
+
+  function pivotSetup(columnDefs: object[]) {
+    const { ctx } = createMockContext<PRow>({
+      columnDefs: columnDefs as never,
+      rowData: pRows,
+      getRowId: (p) => p.data.id,
+      pivotMode: true,
+    });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const renderer = new GridRenderer<PRow>(ctx, host);
+    ctx.renderer = renderer;
+    cleanups.push(() => {
+      renderer.destroy();
+      host.remove();
+    });
+    ctx.rowModel.start();
+    renderer.setViewportSizeForTesting(800, 300);
+    renderer.renderNow();
+    return { ctx, renderer, host };
+  }
+
+  it('deepest group level in active pivot hides the chevron (dead control otherwise)', () => {
+    const { host } = pivotSetup([
+      { field: 'country', rowGroup: true },
+      { field: 'year', pivot: true },
+      { field: 'gold', aggFunc: 'sum' },
+    ]);
+    // Single group level over leaves: every chevron must be hidden.
+    const chevrons = [...host.querySelectorAll('[data-au-expand]')];
+    expect(chevrons.length).toBeGreaterThan(0);
+    expect(chevrons.every((c) => c.classList.contains('au-hidden'))).toBe(true);
+    // And rows must not claim aria-expanded.
+    expect(host.querySelector('.au-row[aria-expanded]')).toBeNull();
+  });
+
+  it('upper group levels stay expandable; expanding reveals subgroups, not leaves', () => {
+    const { ctx, renderer, host } = pivotSetup([
+      { field: 'country', rowGroup: true },
+      { field: 'year', rowGroup: true },
+      { field: 'gold', aggFunc: 'sum', pivot: false },
+      { field: 'id', pivot: true },
+    ]);
+    const model = ctx.rowModel;
+    const before = model.getRowCount(); // 2 country groups
+    let usa: import('../rows/rowNode.js').RowNode<PRow> | null = null;
+    model.forEachNode?.((n) => {
+      if (n.group && n.key === 'USA' && n.level === 0) usa = n;
+    });
+    expect(usa).not.toBeNull();
+    usa!.setExpanded(true);
+    renderer.renderNow();
+    // Reveals the two year subgroups — never the leaf rows.
+    expect(model.getRowCount()).toBe(before + 2);
+    const keys = [...host.querySelectorAll('.au-group-key')].map((k) => k.textContent);
+    expect(keys).toContain('2020');
+    // Country chevron visible, year chevrons hidden.
+    const countryCell = [...host.querySelectorAll('.au-group-key')]
+      .find((k) => k.textContent === 'USA')!
+      .closest('.au-group-cell')!;
+    expect(countryCell.querySelector('[data-au-expand]')!.classList.contains('au-hidden')).toBe(false);
+    const yearCell = [...host.querySelectorAll('.au-group-key')]
+      .find((k) => k.textContent === '2020')!
+      .closest('.au-group-cell')!;
+    expect(yearCell.querySelector('[data-au-expand]')!.classList.contains('au-hidden')).toBe(true);
+  });
+
+  it('pivot MODE without pivot columns still shows leaves — groups stay expandable', () => {
+    const { host } = pivotSetup([
+      { field: 'country', rowGroup: true },
+      { field: 'gold', aggFunc: 'sum' },
+    ]);
+    const chevrons = [...host.querySelectorAll('[data-au-expand]')];
+    expect(chevrons.some((c) => !c.classList.contains('au-hidden'))).toBe(true);
+  });
+});

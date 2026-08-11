@@ -138,15 +138,15 @@ export function Overview(_props: PageProps) {
 
       <footer className="ov-footer">
         <p>
-          Install (pre-npm) from the{' '}
+          Install: <code>npm add @augrid/core @augrid/react</code> (
           <a
-            href="https://github.com/methodify/augrid/releases"
+            href="https://www.npmjs.com/package/@augrid/core"
             target="_blank"
             rel="noreferrer"
           >
-            release tarballs
+            npm
           </a>
-          . Docs: architecture, recipes and the product plan live in{' '}
+          ). Docs: architecture, recipes and the product plan live in{' '}
           <a
             href="https://github.com/methodify/augrid/tree/main/docs"
             target="_blank"

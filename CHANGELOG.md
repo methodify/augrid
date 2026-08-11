@@ -3,6 +3,17 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.10.2 — 2026-08-10
+
+- **Fix: dead expand chevrons at the deepest group level in pivot mode.**
+  Active pivot never displays leaf rows (the flatten stage already treated
+  leaf-only groups as "leaf-like, not expandable"), but `isNodeExpandable`
+  never implemented the same rule — so the deepest group level rendered a
+  chevron whose click changed nothing visible, reading as "expand is
+  broken." Such groups now show no chevron and no `aria-expanded`; upper
+  levels expand to subgroups exactly as before. Pivot *mode* without pivot
+  columns (leaves still shown) is unaffected.
+
 ## 0.10.1 — 2026-08-08
 
 - **Fix: headers washed out while `rowData` is empty.** The no-rows/loading
