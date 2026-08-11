@@ -49,7 +49,13 @@ export function applyTheme(rootEl: HTMLElement, spec: ThemeSpec | undefined): vo
     if (merged.headerHeight === undefined) merged.headerHeight = `${Math.round(36 * scale)}px`;
     if (merged.cellHorizontalPadding === undefined)
       merged.cellHorizontalPadding = `${Math.round(12 * scale)}px`;
-    if (merged.fontSize === undefined) merged.fontSize = `${Math.round(13 * Math.min(scale, 1.08))}px`;
+    // Compact scales geometry but NOT type: 13px stays readable in 26px rows,
+    // and consumer projects consistently found the scaled-down font (10px)
+    // too small while the density itself was right. Comfortable still scales
+    // type up (capped) — larger targets read better with larger text.
+    if (merged.fontSize === undefined && density !== 'compact') {
+      merged.fontSize = `${Math.round(13 * Math.min(scale, 1.08))}px`;
+    }
   }
   for (const [key, value] of Object.entries(merged)) {
     rootEl.style.setProperty(toCssVar(key), String(value));

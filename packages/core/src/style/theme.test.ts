@@ -66,12 +66,22 @@ describe('applyTheme', () => {
     expect(el.style.getPropertyValue('--au-row-height')).toBe('26px'); // round(32 * 0.8)
     expect(el.style.getPropertyValue('--au-header-height')).toBe('29px'); // round(36 * 0.8)
     expect(el.style.getPropertyValue('--au-cell-horizontal-padding')).toBe('10px');
+    // Compact scales geometry but NOT type — 10px text was consistently too
+    // small in consumer projects while the density itself was right.
+    expect(el.style.getPropertyValue('--au-font-size')).toBe('');
 
     applyTheme(el, { density: 'comfortable' });
     expect(el.style.getPropertyValue('--au-row-height')).toBe('40px'); // round(32 * 1.25)
+    expect(el.style.getPropertyValue('--au-font-size')).toBe('14px'); // capped scale-up stays
 
     applyTheme(el, { density: 'normal' });
     expect(el.style.getPropertyValue('--au-row-height')).toBe('');
+  });
+
+  it('compact still honors an explicit fontSize param', () => {
+    const el = document.createElement('div');
+    applyTheme(el, { density: 'compact', params: { fontSize: '11px' } });
+    expect(el.style.getPropertyValue('--au-font-size')).toBe('11px');
   });
 
   it('explicit rowHeight param wins over density defaults', () => {

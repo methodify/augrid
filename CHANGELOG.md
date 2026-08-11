@@ -3,6 +3,18 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.12.0 — 2026-08-11
+
+- **Compact density no longer shrinks the font.** `density: 'compact'` kept
+  scaling type down to 10px along with the geometry — consumer projects
+  consistently found the density right and the text too small. Compact now
+  scales row height (26px), header height, and padding as before while type
+  stays at the 13px default. `theme.params.fontSize` still applies under
+  compact for projects that want small type explicitly; `comfortable` is
+  unchanged (type still scales up, capped at 14px). Visual default change:
+  compact grids render larger text after upgrading — pin
+  `params: { fontSize: '10px' }` to keep the old look.
+
 ## 0.11.0 — 2026-08-10
 
 **Master/detail, row dragging, cell spanning** — the remaining renderer/
