@@ -3,6 +3,25 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.12.1 — 2026-10-01
+
+- **Fix: event-routed commits now fire even when the value is unchanged.**
+  `setValue` short-circuited on `Object.is(newValue, oldValue)` *before* the
+  `readOnlyEdit` / aggregate-cell `cellEditRequest` dispatch — so typing the
+  displayed value raised no event at all. Under `readOnlyEdit` the grid is
+  not the writer and the displayed value is not necessarily the stored one;
+  typing the shown value can itself be a decision (a consumer's "adopt the
+  recommendation by typing it"). `cellEditRequest` now always fires on commit
+  with `oldValue`/`newValue` for the consumer to judge. The short-circuit
+  remains for local writes (no phantom `cellValueChanged`, no repaint).
+- **Fix: master/detail expansion is keyboard-operable.** The master chevron
+  column is now an expansion column for ARIA treegrid keys — Enter toggles,
+  ArrowRight expands, ArrowLeft collapses — matching the auto group column.
+  Previously expansion was mouse-only in flat layouts.
+- Docs: master/detail recipe states that detail rows occupy display indices
+  (`node.detail`, master data by reference) and that per-row
+  `detailRowHeight` re-evaluates on every model refresh.
+
 ## 0.12.0 — 2026-08-11
 
 - **Compact density no longer shrinks the font.** `density: 'compact'` kept

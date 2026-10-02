@@ -452,7 +452,12 @@ export class FocusService<TData = unknown> implements IFocusService<TData> {
    */
   private isGroupHeaderCell(colId: string): boolean {
     if (colId === 'au-fullwidth') return true;
-    return this.ctx.columnModel.getColumn(colId)?.isAutoGroupCol === true;
+    if (this.ctx.columnModel.getColumn(colId)?.isAutoGroupCol === true) return true;
+    // masterDetail: the first data column carries the expand chevron, so it
+    // is the expansion column for keyboard purposes too — Enter toggles,
+    // ArrowRight expands, ArrowLeft collapses (ARIA treegrid), same as the
+    // auto group column. Null when masterDetail is off.
+    return colId === (this.ctx.renderer.getMasterChevronColId?.() ?? null);
   }
 
   /* -------------------------------------------------------------- behaviors */

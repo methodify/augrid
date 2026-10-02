@@ -394,3 +394,40 @@ describe('edit-by-typing mount race (characters within one frame of the first)',
     rafSpy.mockRestore();
   });
 });
+
+describe('master/detail keyboard expansion (ARIA treegrid parity)', () => {
+  it('ArrowRight expands, ArrowLeft collapses, Enter toggles on the chevron column', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const grid = new Grid<Row>(host, {
+      columnDefs: [{ field: 'name' }, { field: 'gold' }], // not editable: Enter toggles
+      rowData: makeRows(5),
+      getRowId: (p) => String(p.data.id),
+      masterDetail: true,
+      detailCellRenderer: () => 'detail',
+      detailRowHeight: 50,
+    });
+    const ctx = grid.getContext();
+    ctx.renderer.setViewportSizeForTesting(800, 300);
+    ctx.renderer.renderNow();
+    const root = host.querySelector('.au-root') as HTMLElement;
+    const press = (key: string) =>
+      root.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+
+    grid.api.setFocusedCell(0, 'name');
+    press('ArrowRight');
+    expect(ctx.rowModel.getRow(0)!.expanded).toBe(true);
+    expect(ctx.rowModel.getRowCount()).toBe(6); // detail row inserted
+    press('ArrowLeft');
+    expect(ctx.rowModel.getRow(0)!.expanded).toBe(false);
+    press('Enter');
+    expect(ctx.rowModel.getRow(0)!.expanded).toBe(true);
+
+    // The non-chevron column does NOT hijack arrows (normal navigation).
+    grid.api.setFocusedCell(2, 'gold');
+    press('ArrowRight');
+    expect(ctx.rowModel.getRow(2)!.expanded).toBe(false);
+    grid.destroy();
+    host.remove();
+  });
+});

@@ -39,6 +39,10 @@ Notes:
 - Batch rapid edits server-side; the grid will happily emit many requests
   during a paste. Collect them and `applyTransaction({ update })` once.
 - `validateEdit` runs before the request fires — reject bad input locally.
+- `cellEditRequest` fires even when the committed value EQUALS the displayed
+  value. The grid is not the writer here and the displayed value is not
+  necessarily the stored one; typing the shown value can itself be a decision
+  (adopting a displayed recommendation). You decide what equal means.
 - Undo/redo is a client concept; with `readOnlyEdit` drive history from your
   server instead (`undoRedoCellEditing` records nothing when data never changes).
 
@@ -558,6 +562,13 @@ createGrid(el, {
 // Chevron renders in the first data column; rowGroupOpened fires on toggle.
 // Detail state is keyed by master row id — survives sort/filter/scrolling.
 // Detail DOM unmounts when scrolled out: render from data, don't hold DOM state.
+// Detail rows OCCUPY display indices: getDisplayedRowAtIndex / visible-range
+// walks see them. Identify with `node.detail === true` (id `detail-<masterId>`);
+// `node.data` is the MASTER's data by reference — filter detail rows out of
+// any per-row walk (timestamps, totals) or you'll double-count.
+// detailRowHeight(fn) re-evaluates on every model refresh (transactions,
+// sort, filter), not just first expand. Keyboard: on the chevron column,
+// Enter toggles, ArrowRight expands, ArrowLeft collapses.
 ```
 
 **Row dragging**: `rowDrag: true` on a column renders a ⠿ handle.

@@ -122,7 +122,6 @@ export class ValueService<TData = unknown> {
     if (!column) return false;
     const colDef = column.getColDef();
     const oldValue = this.getValue(node, column);
-    if (Object.is(oldValue, newValue)) return false;
 
     const base = {
       api: this.ctx.api,
@@ -148,9 +147,18 @@ export class ValueService<TData = unknown> {
       isAggregateTarget(node, column, this.ctx.rowModel.type === 'serverSide') ||
       this.ctx.options.is('readOnlyEdit')
     ) {
+      // Event-routed commits dispatch even when newValue EQUALS the displayed
+      // value: the grid is not the writer here, the displayed value is not
+      // necessarily the stored one, and typing the shown value can itself be
+      // a decision (consumer case: a cell displays a recommendation; typing
+      // that number adopts it). The grid cannot know an equal value carries
+      // no meaning, so it must not decide. The equality short-circuit below
+      // is a LOCAL-WRITE optimisation only.
       this.ctx.events.dispatch({ ...base, type: 'cellEditRequest' });
       return true;
     }
+
+    if (Object.is(oldValue, newValue)) return false;
 
     let written = false;
     if (colDef.valueSetter) {

@@ -241,3 +241,40 @@ describe('ValueService — setValue', () => {
     expect(evt.newValue).toBe('attempted');
   });
 });
+
+describe('readOnlyEdit: equal-value commits still dispatch (AUG-46 shape)', () => {
+  it('cellEditRequest fires even when newValue equals the displayed value', () => {
+    const { ctx, start } = createMockContext<{ id: string; qty: number }>({
+      columnDefs: [{ field: 'qty', editable: true }],
+      rowData: [{ id: 'a', qty: 0 }],
+      getRowId: (p) => p.data.id,
+      readOnlyEdit: true,
+    });
+    start();
+    const requests: { oldValue: unknown; newValue: unknown }[] = [];
+    ctx.events.addEventListener('cellEditRequest', (e) =>
+      requests.push({ oldValue: e.oldValue, newValue: e.newValue }),
+    );
+    const node = ctx.rowModel.getRow(0)!;
+    // Typing the displayed 0 over the 0: the user ACTED — the consumer decides
+    // what an equal value means, not the grid.
+    expect(ctx.values.setValue(node, 'qty', 0, 'edit')).toBe(true);
+    expect(requests).toEqual([{ oldValue: 0, newValue: 0 }]);
+    expect(requests.length).toBe(1);
+  });
+
+  it('the equality short-circuit still applies to local writes', () => {
+    const { ctx, start } = createMockContext<{ id: string; qty: number }>({
+      columnDefs: [{ field: 'qty', editable: true }],
+      rowData: [{ id: 'a', qty: 5 }],
+      getRowId: (p) => p.data.id,
+    });
+    start();
+    const changed: unknown[] = [];
+    ctx.events.addEventListener('cellValueChanged', (e) => changed.push(e));
+    const node = ctx.rowModel.getRow(0)!;
+    expect(ctx.values.setValue(node, 'qty', 5, 'edit')).toBe(false);
+    expect(changed.length).toBe(0);
+    expect(node.__version).toBe(0); // no phantom repaint
+  });
+});
