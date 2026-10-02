@@ -337,3 +337,97 @@ describe('ServerSideRowModel loading UX', () => {
     grid.destroy();
   });
 });
+
+describe('ServerSideRowModel — refresh supersedes in-flight requests', () => {
+  type Flat = { key: string; qty: number };
+  type P = ServerSideRowsParams<Flat>;
+
+  function flatSetup(firstAnswersImmediately: boolean) {
+    let resolveOld: (() => void) | null = null;
+    const oldCalls: P[] = [];
+    const oldDs: ServerSideDatasource<Flat> = {
+      getRows(p) {
+        oldCalls.push(p);
+        const answer = () => p.success({ rowData: [{ key: 'A', qty: 100 }], rowCount: 1 });
+        if (firstAnswersImmediately) answer();
+        else resolveOld = answer;
+      },
+    };
+    const newCalls: P[] = [];
+    const newDs: ServerSideDatasource<Flat> = {
+      getRows(p) {
+        newCalls.push(p);
+        p.success({ rowData: [{ key: 'A', qty: 777 }], rowCount: 1 });
+      },
+    };
+    const { ctx } = createMockContext<Flat>({
+      columnDefs: [{ field: 'qty' }],
+      rowModelType: 'serverSide',
+      getRowId: (p) => p.data.key,
+      serverSideDatasource: oldDs,
+    });
+    const model = new ServerSideRowModel<Flat>(ctx);
+    ctx.rowModel = model;
+    model.start();
+    const shown = () => {
+      const out: string[] = [];
+      model.forEachNode((n) => {
+        if (n.data) out.push(`${n.data.key}=${n.data.qty}`);
+      });
+      return out;
+    };
+    return { ctx, model, newDs, newCalls, oldCalls, resolveOld: () => resolveOld?.(), shown };
+  }
+
+  it('a block STILL LOADING at the datasource switch gets re-asked; the stale answer is dropped', () => {
+    const t = flatSetup(false);
+    expect(t.oldCalls).toHaveLength(1);
+    t.ctx.options.update({ serverSideDatasource: t.newDs });
+    t.model.refreshStores();
+    expect(t.newCalls).toHaveLength(1); // the new datasource IS asked for block 0
+    expect(t.shown()).toEqual(['A=777']);
+    t.resolveOld(); // the superseded answer arrives late…
+    expect(t.shown()).toEqual(['A=777']); // …and is ignored
+  });
+
+  it('control: a block LOADED at the switch refreshes to the new answer', () => {
+    const t = flatSetup(true);
+    expect(t.shown()).toEqual(['A=100']);
+    t.ctx.options.update({ serverSideDatasource: t.newDs });
+    t.model.refreshStores();
+    expect(t.shown()).toEqual(['A=777']);
+  });
+
+  it('two refreshes in flight: only the LATEST answer installs, regardless of arrival order', () => {
+    const answers: (() => void)[] = [];
+    let n = 0;
+    const ds: ServerSideDatasource<Flat> = {
+      getRows(p) {
+        const mine = ++n;
+        answers.push(() => p.success({ rowData: [{ key: 'A', qty: mine }], rowCount: 1 }));
+      },
+    };
+    const { ctx } = createMockContext<Flat>({
+      columnDefs: [{ field: 'qty' }],
+      rowModelType: 'serverSide',
+      getRowId: (p) => p.data.key,
+      serverSideDatasource: ds,
+    });
+    const model = new ServerSideRowModel<Flat>(ctx);
+    ctx.rowModel = model;
+    model.start(); // request 1
+    answers[0]!(); // loaded with qty=1
+    model.refreshStores(); // request 2
+    model.refreshStores(); // request 3 — supersedes 2
+    answers[2]!(); // latest lands first
+    answers[1]!(); // older arrives late — must NOT overwrite
+    const qty = (() => {
+      let v = -1;
+      model.forEachNode((nd) => {
+        if (nd.data) v = nd.data.qty;
+      });
+      return v;
+    })();
+    expect(qty).toBe(3);
+  });
+});

@@ -6,6 +6,12 @@ import type { GroupKey, ServerSideDatasource, ServerSideRowsParams } from '../ty
 interface SSBlock<TData> {
   nodes: (RowNode<TData> | undefined)[];
   state: 'loading' | 'loaded' | 'failed';
+  /**
+   * Request token: bumped on every request for this block. An answer whose
+   * token no longer matches was superseded (by a refresh, or a later request)
+   * and is dropped — the store-wide generation only covers purges.
+   */
+  req: number;
 }
 
 /** One store = the (windowed) children list of one expanded parent. */
@@ -306,8 +312,13 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
     const from = params?.fromRow ?? 0;
     const to = params?.toRow ?? Number.MAX_SAFE_INTEGER;
     for (const store of targets) {
-      for (const [blockIdx, block] of store.blocks) {
-        if (block.state !== 'loaded') continue;
+      for (const [blockIdx] of store.blocks) {
+        // Every existing block is re-requested — loaded, loading, OR failed.
+        // A refresh means "what you hold no longer answers my question"; a
+        // block still in flight holds a question, not an answer, and its
+        // pending reply (possibly from a datasource the consumer has since
+        // swapped out) must not be installed. The per-block token in
+        // requestRows retires it.
         const first = blockIdx * size;
         if (first + size - 1 < from || first > to) continue;
         this.requestRows(store, blockIdx);
@@ -322,6 +333,7 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
     store.blocks.set(blockIdx, {
       nodes: new Array<RowNode<TData> | undefined>(this.blockSize()),
       state: 'loading',
+      req: 0,
     });
     this.requestRows(store, blockIdx);
   }
@@ -333,9 +345,11 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
       if (block) block.state = 'failed';
       return;
     }
+    if (!block) return;
     const size = this.blockSize();
     const startRow = blockIdx * size;
     const gen = this.generation;
+    const req = ++block.req;
     const params: ServerSideRowsParams<TData> = {
       groupKeys: store.path,
       rowGroupCols: this.groupCols(),
@@ -346,8 +360,8 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
       endRow: startRow + size,
       sortModel: this.ctx.sort.getSortModel(),
       filterModel: this.ctx.filters.getModel(),
-      success: (result) => this.onLoadSuccess(store, blockIdx, gen, result),
-      fail: () => this.onLoadFail(store, blockIdx, gen),
+      success: (result) => this.onLoadSuccess(store, blockIdx, gen, req, result),
+      fail: () => this.onLoadFail(store, blockIdx, gen, req),
     };
     ds.getRows(params);
   }
@@ -356,11 +370,12 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
     store: SSStore<TData>,
     blockIdx: number,
     gen: number,
+    req: number,
     result: { rowData: TData[]; rowCount?: number },
   ): void {
     if (gen !== this.generation || this.ctx.destroyed) return;
     const block = store.blocks.get(blockIdx);
-    if (!block) return;
+    if (!block || block.req !== req) return; // superseded answer
     const size = this.blockSize();
     const startRow = blockIdx * size;
     const getRowId = this.ctx.options.get('getRowId');
@@ -434,10 +449,11 @@ export class ServerSideRowModel<TData = unknown> implements IRowModel<TData> {
     this.dispatchModelUpdated();
   }
 
-  private onLoadFail(store: SSStore<TData>, blockIdx: number, gen: number): void {
+  private onLoadFail(store: SSStore<TData>, blockIdx: number, gen: number, req: number): void {
     if (gen !== this.generation || this.ctx.destroyed) return;
     const block = store.blocks.get(blockIdx);
-    if (block) block.state = 'failed';
+    if (!block || block.req !== req) return; // superseded failure
+    block.state = 'failed';
     this.ctx.scheduleRender();
   }
 

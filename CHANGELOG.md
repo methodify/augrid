@@ -3,6 +3,19 @@
 All notable changes to AuGrid will be documented in this file. Versions follow
 [semver](https://semver.org); pre-1.0 minor versions may contain breaking changes.
 
+## 0.12.2 — 2026-10-02
+
+- **Fix: server-side `refreshServerSideStore()` now supersedes in-flight
+  block requests.** A refresh re-requested only `loaded` blocks and did not
+  retire pending requests, so a block still loading at the time of a refresh
+  (typically right after swapping `serverSideDatasource`) kept its original
+  request — and that stale answer, from the *old* datasource, was installed
+  when it arrived; the new datasource was never asked. Blocks now carry a
+  per-request token: a refresh re-requests every existing block (loaded,
+  loading, or failed) and any earlier answer for that block is dropped on
+  arrival. This also closes a latent race where two quick refreshes of a
+  loaded block could install the older of two in-flight answers.
+
 ## 0.12.1 — 2026-10-01
 
 - **Fix: event-routed commits now fire even when the value is unchanged.**
